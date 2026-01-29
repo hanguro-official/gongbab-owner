@@ -12,12 +12,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Gongbab Owner',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        fontFamily: 'Pretendard', //
       ),
-      home: const LoginScreen()
+      home: const LoginScreen(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
