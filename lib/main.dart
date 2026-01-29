@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
       routerConfig: AppRouter.router,
       title: 'Gongbab Owner',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primaryColor: const Color(0xFF3b82f6),
         scaffoldBackgroundColor: const Color(0xFF0F172A),
         fontFamily: 'Pretendard', //
       ),
