@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,47 +17,36 @@ class _LoginScreenState extends State<LoginScreen> {
   List<String?> inputs = [null, null, null, null, null];
   int currentIndex = 0;
 
-  void _onNumberPressed(String number) {
-    if (currentIndex < 4) {
-      setState(() {
-        inputs[currentIndex] = number;
-        currentIndex++;
-        // Switch to alphabet mode after 4 digits
-        if (currentIndex == 4) {
-          isNumberMode = false;
-        }
-      });
-    }
+  // TextEditingControllers for each input field
+  final List<TextEditingController> _controllers = List.generate(
+    5,
+        (index) => TextEditingController(),
+  );
+
+  // FocusNodes for each input field
+  final List<FocusNode> _focusNodes = List.generate(
+    5,
+        (index) => FocusNode(),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-focus first field when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNodes[0].requestFocus();
+    });
   }
 
-  void _onLetterPressed(String letter) {
-    if (currentIndex == 4) {
-      setState(() {
-        inputs[currentIndex] = letter;
-        currentIndex++;
-      });
+  @override
+  void dispose() {
+    for (var controller in _controllers) {
+      controller.dispose();
     }
-  }
-
-  void _onBackspace() {
-    setState(() {
-      if (currentIndex > 0) {
-        currentIndex--;
-        inputs[currentIndex] = null;
-        // Switch back to number mode if clearing from alphabet
-        if (currentIndex < 4) {
-          isNumberMode = true;
-        }
-      }
-    });
-  } // 여기에 닫는 중괄호 추가
-
-  void _onClearAll() {
-    setState(() {
-      inputs = [null, null, null, null, null];
-      currentIndex = 0;
-      isNumberMode = true; // Reset to number mode
-    });
+    for (var focusNode in _focusNodes) {
+      focusNode.dispose();
+    }
+    super.dispose();
   }
 
   void _onLogin() {
@@ -63,6 +54,11 @@ class _LoginScreenState extends State<LoginScreen> {
       // All inputs filled, proceed with login
       String pin = inputs.sublist(0, 4).join();
       String alphabet = inputs[4]!;
+
+      // Unfocus all fields to hide keyboard
+      for (var focusNode in _focusNodes) {
+        focusNode.unfocus();
+      }
 
       // TODO: Implement login logic
       print('PIN: $pin, Alphabet: $alphabet');
@@ -75,81 +71,90 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(24.w),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween, // 위젯들을 위, 아래, 중간에 배치
             children: [
-              const SizedBox(height: 40),
-              // Title
-              const Text(
-                '관리자 로그인',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+              // 상단 공간 (SizedBox 또는 다른 위젯으로 조절)
+              const Spacer(),
+              Column(
+                children: [
+                  // Title
+                  Text(
+                    '관리자 로그인',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  // Subtitle
+                  Text(
+                    '휴대폰 번호 뒤 4자리 + 알파벳 1자리',
+                    style: TextStyle(
+                      color: const Color(0xFF94A3B8),
+                      fontSize: 16.sp,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              // Subtitle
-              const Text(
-                '번호 4자리 + 알파벳 1자리',
-                style: TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 60),
               // Input dots
+              const Spacer(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
                   5,
-                      (index) =>
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: _buildInputDot(index),
+                  (index) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4.w),
+                      child: AspectRatio(
+                        aspectRatio: 1.0,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: 60.w,
+                            minHeight: 60.h,
+                          ),
+                          child: _buildInputDot(index),
+                        ),
                       ),
-                ),
-              ),
-              const SizedBox(height: 60),
-              // Keypad
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: isNumberMode
-                      ? _buildNumberKeypad()
-                      : _buildAlphabetKeypad(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Login button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: currentIndex == 5 ? _onLogin : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
-                    disabledBackgroundColor: const Color(0xFF1E293B),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    '로그인',
-                    style: TextStyle(
-                      color: currentIndex == 5 ? Colors.white : const Color(
-                          0xFF64748B),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
+              ),
+              // 하단 공간
+              const Spacer(),
+              Column(
+                children: [
+                  // Login button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: currentIndex == 5 ? _onLogin : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3B82F6),
+                        disabledBackgroundColor: const Color(0xFF1E293B),
+                        padding: EdgeInsets.symmetric(vertical: 18.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                      child: Text(
+                        '로그인',
+                        style: TextStyle(
+                          color: currentIndex == 5
+                              ? Colors.white
+                              : const Color(0xFF64748B),
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -159,401 +164,97 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildInputDot(int index) {
-    bool isFilled = inputs[index] != null;
-    bool isActive = currentIndex == index;
+    bool isFilled = inputs[index] != null && inputs[index]!.isNotEmpty;
     bool isAlphabet = index == 4;
 
-    return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2332),
-        border: Border.all(
-          color: isActive ? const Color(0xFF3B82F6) : const Color(0xFF2D3748),
-          width: 2,
-        ),
-        borderRadius: BorderRadius.circular(12),
+    return TextField(
+      controller: _controllers[index],
+      focusNode: _focusNodes[index],
+      keyboardType: isAlphabet ? TextInputType.text : TextInputType.number,
+      textAlign: TextAlign.center,
+      textAlignVertical: TextAlignVertical.center,
+      maxLength: 1,
+      obscureText: isFilled,
+      obscuringCharacter: '●',
+      showCursor: false,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 24.sp,
+        fontWeight: FontWeight.bold,
       ),
-      child: Center(
-        child: isAlphabet && !isFilled
-            ? const Text(
-          'A',
-          style: TextStyle(
-            color: Color(0xFF3B82F6),
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        )
-            : isFilled
-            ? Container(
-          width: 12,
-          height: 12,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-        )
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildNumberKeypad() {
-    return Column(
-      children: [
-        // Tab buttons
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    isNumberMode = true;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: isNumberMode
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF1A2332),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '숫자 키패드',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    isNumberMode = false;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: !isNumberMode
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF1A2332),
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                    ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '알파벳',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        // Number pad
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildKeypadButton('1', _onNumberPressed),
-            _buildKeypadButton('2', _onNumberPressed),
-            _buildKeypadButton('3', _onNumberPressed),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildKeypadButton('4', _onNumberPressed),
-            _buildKeypadButton('5', _onNumberPressed),
-            _buildKeypadButton('6', _onNumberPressed),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildKeypadButton('7', _onNumberPressed),
-            _buildKeypadButton('8', _onNumberPressed),
-            _buildKeypadButton('9', _onNumberPressed),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildClearButton(),
-            _buildKeypadButton('0', _onNumberPressed),
-            _buildBackspaceButton(),
-          ],
-        ),
-        const SizedBox(height: 20),
-        // Alphabet hint
-        const Text(
-          '빠른 알파벳 입력',
-          style: TextStyle(
-            color: Color(0xFF64748B),
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildAlphabetButton('A'),
-            _buildAlphabetButton('B'),
-            _buildAlphabetButton('C'),
-            _buildAlphabetButton('D'),
-            _buildAlphabetButton('E'),
-          ],
-        ),
+      inputFormatters: [
+        if (isAlphabet)
+          FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z]'))
+        else
+          FilteringTextInputFormatter.digitsOnly,
       ],
-    );
-  }
-
-  Widget _buildAlphabetKeypad() {
-    const letters = [
-      ['A', 'B', 'C', 'D', 'E'],
-      ['F', 'G', 'H', 'I', 'J'],
-      ['K', 'L', 'M', 'N', 'O'],
-      ['P', 'Q', 'R', 'S', 'T'],
-      ['U', 'V', 'W', 'X', 'Y'],
-    ];
-
-    return Column(
-      children: [
-        // Tab buttons
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    isNumberMode = true;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: isNumberMode
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF1A2332),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '숫자 키패드',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    isNumberMode = false;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: !isNumberMode
-                        ? const Color(0xFF3B82F6)
-                        : const Color(0xFF1A2332),
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                    ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '알파벳',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        // Alphabet pad
-        ...letters.map((row) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: row
-                  .map((letter) => _buildAlphabetKeyButton(letter))
-                  .toList(),
-            ),
-          );
-        }).toList(),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildClearButton(),
-            _buildAlphabetKeyButton('Z'),
-            _buildBackspaceButton(),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildKeypadButton(String number, Function(String) onPressed) {
-    return GestureDetector(
-      onTap: () => onPressed(number),
-      child: Container(
-        width: 100,
-        height: 60,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+      decoration: InputDecoration(
+        counterText: '',
+        filled: true,
+        fillColor: const Color(0xFF1A2332),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(
+            color: const Color(0xFF2D3748),
+            width: 2.w,
           ),
         ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(
+            color: const Color(0xFF3B82F6),
+            width: 2.w,
+          ),
+        ),
+        hintText: isAlphabet && !isFilled ? 'A' : '',
+        hintStyle: TextStyle(
+          color: const Color(0xFF3B82F6),
+          fontSize: 24.sp,
+          fontWeight: FontWeight.bold,
+        ),
+        contentPadding: EdgeInsets.all(4.w),
+        isDense: true,
       ),
-    );
-  }
-
-  Widget _buildAlphabetButton(String letter) {
-    bool isSelected = inputs[4] == letter;
-
-    return GestureDetector(
-      onTap: () => _onLetterPressed(letter),
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF3B82F6) : const Color(
-                0xFF2D3748),
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            letter,
-            style: TextStyle(
-              color: isSelected ? const Color(0xFF3B82F6) : Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlphabetKeyButton(String letter) {
-    return GestureDetector(
-      onTap: () => _onLetterPressed(letter),
-      child: Container(
-        width: 64,
-        height: 56,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            letter,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildClearButton() {
-    return GestureDetector(
-      onTap: _onClearAll,
-      child: Container(
-        width: 100,
-        height: 60,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Center(
-          child: Text(
-            'CLEAR',
-            style: TextStyle(
-              color: Color(0xFFEF4444),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBackspaceButton() {
-    return GestureDetector(
-      onTap: _onBackspace,
-      child: Container(
-        width: 100,
-        height: 60,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.backspace_outlined,
-            color: Colors.white,
-            size: 24,
-          ),
-        ),
-      ),
+      onChanged: (value) {
+        if (value.isNotEmpty) {
+          setState(() {
+            if (isAlphabet) {
+              // Alphabet field - only accept letters
+              inputs[index] = value.toUpperCase();
+              _controllers[index].text = value.toUpperCase();
+              _controllers[index].selection = TextSelection.fromPosition(
+                TextPosition(offset: _controllers[index].text.length),
+              );
+              currentIndex = 5;
+              // Unfocus after entering alphabet
+              _focusNodes[index].unfocus();
+            } else {
+              // Number field - only accept digits
+              inputs[index] = value;
+              currentIndex = index + 1;
+              // Move to next field
+              if (index < 4) {
+                _focusNodes[index + 1].requestFocus();
+              } else {
+                _focusNodes[index].unfocus();
+              }
+            }
+          });
+        } else {
+          // Handle backspace
+          setState(() {
+            inputs[index] = null;
+            if (index > 0) {
+              currentIndex = index;
+            }
+          });
+        }
+      },
+      onTap: () {
+        setState(() {
+          currentIndex = index;
+        });
+      },
     );
   }
 }
