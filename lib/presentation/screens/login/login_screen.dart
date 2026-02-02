@@ -167,94 +167,102 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isFilled = inputs[index] != null && inputs[index]!.isNotEmpty;
     bool isAlphabet = index == 4;
 
-    return TextField(
-      controller: _controllers[index],
-      focusNode: _focusNodes[index],
-      keyboardType: isAlphabet ? TextInputType.text : TextInputType.number,
-      textAlign: TextAlign.center,
-      textAlignVertical: TextAlignVertical.center,
-      maxLength: 1,
-      obscureText: isFilled,
-      obscuringCharacter: '●',
-      showCursor: false,
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 24.sp,
-        fontWeight: FontWeight.bold,
-      ),
-      inputFormatters: [
-        if (isAlphabet)
-          FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z]'))
-        else
-          FilteringTextInputFormatter.digitsOnly,
-      ],
-      decoration: InputDecoration(
-        counterText: '',
-        filled: true,
-        fillColor: const Color(0xFF1A2332),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(
-            color: const Color(0xFF2D3748),
-            width: 2.w,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(
-            color: const Color(0xFF3B82F6),
-            width: 2.w,
-          ),
-        ),
-        hintText: isAlphabet && !isFilled ? 'A' : '',
-        hintStyle: TextStyle(
-          color: const Color(0xFF3B82F6),
+    return RawKeyboardListener(
+      focusNode: FocusNode(),
+      onKey: (RawKeyEvent event) {
+        if (event is RawKeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.backspace) {
+          if (_controllers[index].text.isEmpty && index > 0) {
+            setState(() {
+              currentIndex = index - 1;
+              _focusNodes[currentIndex].requestFocus();
+              _controllers[currentIndex].clear();
+              inputs[currentIndex] = null;
+            });
+          }
+        }
+      },
+      child: TextField(
+        controller: _controllers[index],
+        focusNode: _focusNodes[index],
+        keyboardType: isAlphabet ? TextInputType.text : TextInputType.number,
+        textAlign: TextAlign.center,
+        textAlignVertical: TextAlignVertical.center,
+        maxLength: 1,
+        obscureText: isFilled,
+        obscuringCharacter: '●',
+        showCursor: false,
+        style: TextStyle(
+          color: Colors.white,
           fontSize: 24.sp,
           fontWeight: FontWeight.bold,
         ),
-        contentPadding: EdgeInsets.all(4.w),
-        isDense: true,
-      ),
-      onChanged: (value) {
-        if (value.isNotEmpty) {
+        inputFormatters: [
+          if (isAlphabet)
+            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z]'))
+          else
+            FilteringTextInputFormatter.digitsOnly,
+        ],
+        decoration: InputDecoration(
+          counterText: '',
+          filled: true,
+          fillColor: const Color(0xFF1A2332),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide: BorderSide(
+              color: const Color(0xFF2D3748),
+              width: 2.w,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide: BorderSide(
+              color: const Color(0xFF3B82F6),
+              width: 2.w,
+            ),
+          ),
+          hintText: isAlphabet && !isFilled ? 'A' : '',
+          hintStyle: TextStyle(
+            color: const Color(0xFF3B82F6),
+            fontSize: 24.sp,
+            fontWeight: FontWeight.bold,
+          ),
+          contentPadding: EdgeInsets.all(4.w),
+          isDense: true,
+        ),
+        onChanged: (value) {
           setState(() {
-            if (isAlphabet) {
-              // Alphabet field - only accept letters
-              inputs[index] = value.toUpperCase();
-              _controllers[index].text = value.toUpperCase();
-              _controllers[index].selection = TextSelection.fromPosition(
-                TextPosition(offset: _controllers[index].text.length),
-              );
-              currentIndex = 5;
-              // Unfocus after entering alphabet
-              _focusNodes[index].unfocus();
-            } else {
-              // Number field - only accept digits
+            if (value.isNotEmpty) {
               inputs[index] = value;
-              currentIndex = index + 1;
-              // Move to next field
-              if (index < 4) {
-                _focusNodes[index + 1].requestFocus();
-              } else {
+              if (isAlphabet) {
+                _controllers[index].text = value.toUpperCase();
+                _controllers[index].selection = TextSelection.fromPosition(
+                  TextPosition(offset: _controllers[index].text.length),
+                );
+                currentIndex = 5;
                 _focusNodes[index].unfocus();
+              } else {
+                if (index < 4) {
+                  currentIndex = index + 1;
+                  _focusNodes[currentIndex].requestFocus();
+                } else {
+                  // This case should ideally not be hit if the 5th is alphabet
+                  currentIndex = 5;
+                  _focusNodes[index].unfocus();
+                }
               }
-            }
-          });
-        } else {
-          // Handle backspace
-          setState(() {
-            inputs[index] = null;
-            if (index > 0) {
+            } else {
+              inputs[index] = null;
               currentIndex = index;
             }
           });
-        }
-      },
-      onTap: () {
-        setState(() {
-          currentIndex = index;
-        });
-      },
+        },
+        onTap: () {
+          setState(() {
+            currentIndex = index;
+          });
+        },
+      ),
     );
   }
 }
