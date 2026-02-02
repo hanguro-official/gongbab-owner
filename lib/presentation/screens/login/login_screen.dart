@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
+import 'package:gongbab_owner/presentation/router/app_router.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -61,9 +63,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // TODO: Implement login logic
-      print('PIN: $pin, Alphabet: $alphabet');
+      print('PIN:$pin$alphabet');
 
       // Navigate to next screen or show error
+      context.push(AppRoutes.dailyMealCountStatus);
     }
   }
 
@@ -227,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
             fontSize: 24.sp,
             fontWeight: FontWeight.bold,
           ),
-          contentPadding: EdgeInsets.all(4.w),
+          contentPadding: EdgeInsets.all(8.w),
           isDense: true,
         ),
         onChanged: (value) {
