@@ -23,7 +23,7 @@ class AuthRepositoryImpl implements AuthRepository { // AuthRepository 인터페
     );
     return result.when(
       success: (model) => Result.success(model.toEntity()),
-      failure: (code, data) => Result.failure(code, data),
+      failure: (success, error) => Result.failure(success, error),
       error: (error) => Result.error(error),
     );
   }

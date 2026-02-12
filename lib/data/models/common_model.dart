@@ -4,12 +4,12 @@ part 'common_model.g.dart';
 
 @JsonSerializable()
 class CommonModel {
-  final String success;
-  final Map<String, dynamic> data;
+  final bool success;
+  final Map<String, dynamic> error;
 
   CommonModel({
     required this.success,
-    required this.data,
+    required this.error,
   });
 
   factory CommonModel.fromJson(Map<String, dynamic> json) => _$CommonModelFromJson(json);

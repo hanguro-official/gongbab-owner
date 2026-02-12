@@ -1,9 +1,9 @@
 class Common {
-  final String success;
-  final Map<String, dynamic>? data;
+  final bool success;
+  final Map<String, dynamic>? error;
 
   Common({
     required this.success,
-    this.data,
+    this.error,
   });
 }

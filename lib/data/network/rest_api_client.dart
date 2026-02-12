@@ -30,13 +30,13 @@ class RestApiClient {
         return Result.success(fromJson(response.data));
       } else {
         final data = CommonModel.fromJson(response.data);
-        return Result.failure(data.success, data.data);
+        return Result.failure(data.success, data.error);
       }
     } on DioException catch (e) {
       if (e.response != null && e.response!.data != null) {
         try {
           final data = CommonModel.fromJson(e.response!.data);
-          return Result.failure(data.success, data.data);
+          return Result.failure(data.success, data.error);
         } catch (_) {
           return Result.error(e.message ?? 'Network error occurred');
         }
