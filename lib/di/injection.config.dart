@@ -25,6 +25,7 @@ import '../domain/repositories/auth_repository.dart' as _i800;
 import '../domain/repositories/dashboard_repository.dart' as _i525;
 import '../domain/repositories/meal_log_repository.dart' as _i637;
 import '../domain/repositories/settlement_repository.dart' as _i85;
+import '../domain/usecases/export_monthly_settlement_usecase.dart' as _i801;
 import '../domain/usecases/get_daily_dashboard_usecase.dart' as _i413;
 import '../domain/usecases/get_meal_logs_usecase.dart' as _i865;
 import '../domain/usecases/get_monthly_settlement_usecase.dart' as _i351;
@@ -73,6 +74,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i413.GetDailyDashboardUseCase(gh<_i525.DashboardRepository>()));
     gh.factory<_i351.GetMonthlySettlementUseCase>(() =>
         _i351.GetMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
+    gh.factory<_i801.ExportMonthlySettlementUseCase>(() =>
+        _i801.ExportMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
     return this;
   }
 }
