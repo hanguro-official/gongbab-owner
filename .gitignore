@@ -30,6 +30,15 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+.flutter-plugins-dependencies
+.flutter-plugins
+.packages
+.vscode/
+.idea/
+.DS_Store
+.env
+.env.*
+lib/config/api_config.dart
 
 # Symbolication related
 app.*.symbols

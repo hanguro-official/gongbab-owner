@@ -35,12 +35,24 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  flutter_screenutil:
   go_router: ^15.1.2
-  flutter_screenutil: ^5.9.3
+  dio: ^5.9.1 # HTTP 클라이언트
+  json_annotation: ^4.9.0 # JSON 직렬화/역직렬화 어노테이션
+  pretty_dio_logger: ^1.0.0 # Dio 로깅
+  equatable: ^2.0.5 # 값 비교를 위한 라이브러리
+  get_it: ^7.7.0 # 의존성 주입을 위한 서비스 로케이터
+  injectable: ^2.4.2 # get_it과 함께 코드 생성을 통한 의존성 주입
+  logger: ^2.5.0 # 로깅 라이브러리
+  connectivity_plus: ^7.0.0
+  freezed_annotation: ^3.1.0
+  shared_preferences: ^2.5.3
+  device_info_plus: ^9.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  injectable_generator: ^2.6.1 # injectable 코드 생성기
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -48,6 +60,11 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+  json_serializable: ^6.8.0 # JSON 직렬화/역직렬화 코드 생성
+  build_runner: ^2.4.9 # 코드 생성기 실행
+  mockito: ^5.4.4
+  test: ^1.25.7
+  freezed: ^3.0.0-0.0.dev
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -59,6 +76,27 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard-Thin.otf
+          weight: 100
+        - asset: assets/fonts/Pretendard-ExtraLight.otf
+          weight: 200
+        - asset: assets/fonts/Pretendard-Light.otf
+          weight: 300
+        - asset: assets/fonts/Pretendard-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Pretendard-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Pretendard-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Pretendard-Bold.otf
+          weight: 700
+        - asset: assets/fonts/Pretendard-ExtraBold.otf
+          weight: 800
+        - asset: assets/fonts/Pretendard-Black.otf
+          weight: 900
 
   # To add assets to your application, add an assets section, like this:
   # assets:

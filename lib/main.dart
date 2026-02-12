@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gongbab_owner/presentation/router/app_router.dart';
 
-void main() {
+import 'di/injection.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await configureDependencies();
+
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
   runApp(const MyApp());
 }
 
@@ -21,8 +31,9 @@ class MyApp extends StatelessWidget {
           routerConfig: AppRouter.router,
           title: 'Gongbab Owner',
           theme: ThemeData(
+            brightness: Brightness.dark,
             primaryColor: const Color(0xFF3b82f6),
-            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            scaffoldBackgroundColor: const Color(0xFF1a1f2e),
             fontFamily: 'Pretendard', //
           ),
           debugShowCheckedModeBanner: false,
