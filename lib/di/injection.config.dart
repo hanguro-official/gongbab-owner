@@ -14,6 +14,7 @@ import 'package:injectable/injectable.dart' as _i526;
 import 'package:shared_preferences/shared_preferences.dart' as _i460;
 
 import '../data/auth/auth_token_manager.dart' as _i702;
+import '../data/device/device_info_service.dart' as _i120;
 import '../data/network/api_service.dart' as _i589;
 import '../data/network/app_api_client.dart' as _i133;
 import '../data/network/auth_interceptor.dart' as _i803;
@@ -29,6 +30,8 @@ import '../domain/usecases/export_monthly_settlement_usecase.dart' as _i801;
 import '../domain/usecases/get_daily_dashboard_usecase.dart' as _i413;
 import '../domain/usecases/get_meal_logs_usecase.dart' as _i865;
 import '../domain/usecases/get_monthly_settlement_usecase.dart' as _i351;
+import '../domain/usecases/login_usecase.dart' as _i634;
+import '../presentation/screens/login/login_view_model.dart' as _i568;
 import 'injection.dart' as _i464;
 
 extension GetItInjectableX on _i174.GetIt {
@@ -48,6 +51,7 @@ extension GetItInjectableX on _i174.GetIt {
       preResolve: true,
     );
     gh.lazySingleton<_i361.Dio>(() => registerModule.dio);
+    gh.lazySingleton<_i120.DeviceInfoService>(() => _i120.DeviceInfoService());
     gh.lazySingleton<_i702.AuthTokenManager>(
         () => _i702.AuthTokenManager(gh<_i460.SharedPreferences>()));
     gh.factory<_i803.AuthInterceptor>(() => _i803.AuthInterceptor(
@@ -70,6 +74,15 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i865.GetMealLogsUseCase(gh<_i637.MealLogRepository>()));
     gh.lazySingleton<_i800.AuthRepository>(
         () => _i74.AuthRepositoryImpl(gh<_i589.ApiService>()));
+    gh.lazySingleton<_i634.LoginUseCase>(() => registerModule.loginUseCase(
+          gh<_i800.AuthRepository>(),
+          gh<_i702.AuthTokenManager>(),
+        ));
+    gh.factory<_i568.LoginViewModel>(() => _i568.LoginViewModel(
+          gh<_i634.LoginUseCase>(),
+          gh<_i702.AuthTokenManager>(),
+          gh<_i120.DeviceInfoService>(),
+        ));
     gh.factory<_i413.GetDailyDashboardUseCase>(
         () => _i413.GetDailyDashboardUseCase(gh<_i525.DashboardRepository>()));
     gh.factory<_i351.GetMonthlySettlementUseCase>(() =>

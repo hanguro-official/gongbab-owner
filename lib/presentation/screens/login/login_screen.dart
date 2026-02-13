@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gongbab_owner/presentation/router/app_router.dart';
+
+import '../../../di/injection.dart';
+import '../../router/app_router.dart';
+import '../../widgets/custom_alert_dialog.dart';
+import 'login_event.dart';
+import 'login_ui_state.dart';
+import 'login_view_model.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +19,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  late final LoginViewModel _loginViewModel;
+
   // Input mode: true for number keypad, false for alphabet keypad
   bool isNumberMode = true;
 
@@ -34,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    _loginViewModel = getIt<LoginViewModel>();
     // Auto-focus first field when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNodes[0].requestFocus();
@@ -48,25 +58,23 @@ class _LoginScreenState extends State<LoginScreen> {
     for (var focusNode in _focusNodes) {
       focusNode.dispose();
     }
+    _loginViewModel.dispose();
     super.dispose();
   }
 
   void _onLogin() {
     if (currentIndex == 5) {
       // All inputs filled, proceed with login
-      String pin = inputs.sublist(0, 4).join();
-      String alphabet = inputs[4]!;
+      String code = inputs.join(); // Combine all inputs into a single code
 
       // Unfocus all fields to hide keyboard
       for (var focusNode in _focusNodes) {
         focusNode.unfocus();
       }
 
-      // TODO: Implement login logic
-      print('PIN:$pin$alphabet');
-
-      // Navigate to next screen or show error
-      context.push(AppRoutes.dailyMealCountStatus);
+      _loginViewModel.onEvent(LoginButtonPressed(
+        code: code,
+      ));
     }
   }
 
@@ -76,91 +84,141 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFF0F172A),
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(24.w),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween, // 위젯들을 위, 아래, 중간에 배치
-            children: [
-              // 상단 공간 (SizedBox 또는 다른 위젯으로 조절)
-              const Spacer(),
-              Column(
+        child: ListenableBuilder(
+          listenable: _loginViewModel,
+          builder: (context, child) {
+            final uiState = _loginViewModel.uiState;
+
+            if (uiState is Loading) {
+              // Show loading indicator
+              return const Center(child: CircularProgressIndicator());
+            } else if (uiState is Success) {
+              // Navigate to next screen on success
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                context.go(AppRoutes.dailyMealCountStatus); // Placeholder for actual home route
+              });
+            } else if (uiState is Failure) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (uiState.event is ShowAlertDialog) {
+                  final alertDialogEvent = uiState.event as ShowAlertDialog;
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return CustomAlertDialog(
+                        title: alertDialogEvent.title,
+                        content: alertDialogEvent.content,
+                        leftButtonText: alertDialogEvent.leftButtonText,
+                        onLeftButtonPressed: alertDialogEvent.onLeftButtonPressed,
+                        rightButtonText: alertDialogEvent.rightButtonText,
+                        onRightButtonPressed: alertDialogEvent.onRightButtonPressed,
+                      );
+                    },
+                  );
+                }
+                _loginViewModel.resetState(); // Reset state after handling
+              });
+            } else if (uiState is GeneralError) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (uiState.event is ShowSnackBar) {
+                  final snackBarEvent = uiState.event as ShowSnackBar;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(snackBarEvent.message),
+                      backgroundColor: snackBarEvent.backgroundColor,
+                    ),
+                  );
+                }
+                _loginViewModel.resetState(); // Reset state after handling
+              });
+            }
+
+            return Padding(
+              padding: EdgeInsets.all(24.w),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, // 위젯들을 위, 아래, 중간에 배치
                 children: [
-                  // Title
-                  Text(
-                    '관리자 로그인',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 4.h),
-                  // Subtitle
-                  Text(
-                    '휴대폰 번호 뒤 4자리 + 알파벳 1자리',
-                    style: TextStyle(
-                      color: const Color(0xFF94A3B8),
-                      fontSize: 16.sp,
-                    ),
-                  ),
-                ],
-              ),
-              // Input dots
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  5,
-                  (index) => Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4.w),
-                      child: AspectRatio(
-                        aspectRatio: 1.0,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minWidth: 60.w,
-                            minHeight: 60.h,
-                          ),
-                          child: _buildInputDot(index),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // 하단 공간
-              const Spacer(),
-              Column(
-                children: [
-                  // Login button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: currentIndex == 5 ? _onLogin : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
-                        disabledBackgroundColor: const Color(0xFF1E293B),
-                        padding: EdgeInsets.symmetric(vertical: 18.h),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                      ),
-                      child: Text(
-                        '로그인',
+                  // 상단 공간 (SizedBox 또는 다른 위젯으로 조절)
+                  const Spacer(),
+                  Column(
+                    children: [
+                      // Title
+                      Text(
+                        '관리자 로그인',
                         style: TextStyle(
-                          color: currentIndex == 5
-                              ? Colors.white
-                              : const Color(0xFF64748B),
-                          fontSize: 18.sp,
+                          color: Colors.white,
+                          fontSize: 28.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      SizedBox(height: 4.h),
+                      // Subtitle
+                      Text(
+                        '4자리 + 알파벳 1자리',
+                        style: TextStyle(
+                          color: const Color(0xFF94A3B8),
+                          fontSize: 16.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Input dots
+                  const Spacer(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      5,
+                          (index) => Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4.w),
+                          child: AspectRatio(
+                            aspectRatio: 1.0,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: 60.w,
+                                minHeight: 60.h,
+                              ),
+                              child: _buildInputDot(index),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                  ),
+                  // 하단 공간
+                  const Spacer(),
+                  Column(
+                    children: [
+                      // Login button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: currentIndex == 5 && uiState is! Loading ? _onLogin : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF3B82F6),
+                            disabledBackgroundColor: const Color(0xFF1E293B),
+                            padding: EdgeInsets.symmetric(vertical: 18.h),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                          ),
+                          child: Text(
+                            '로그인',
+                            style: TextStyle(
+                              color: currentIndex == 5 && uiState is! Loading
+                                  ? Colors.white
+                                  : const Color(0xFF64748B),
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
