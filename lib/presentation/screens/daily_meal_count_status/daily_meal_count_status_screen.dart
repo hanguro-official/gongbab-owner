@@ -21,8 +21,6 @@ class _DailyMealCountStatusScreenState
     extends State<DailyMealCountStatusScreen> {
   late DailyMealCountStatusViewModel _viewModel;
   DateTime selectedDate = DateTime.now();
-  // TODO: 실제 레스토랑 ID를 가져오는 로직으로 교체 필요
-  final String _restaurantId = 'owner_restaurant_id_example'; 
 
   @override
   void initState() {
@@ -45,7 +43,6 @@ class _DailyMealCountStatusScreenState
   void _loadDashboardData() {
     final formattedDate = selectedDate.toIso8601String().split('T').first;
     _viewModel.onEvent(LoadDailyDashboard(
-      restaurantId: _restaurantId,
       date: formattedDate,
     ));
   }
@@ -236,6 +233,14 @@ class _DailyMealCountStatusScreenState
   }
 
   Widget _buildCompanyList(List<DailyDashboardCompany> companies) {
+    if (companies.isEmpty) {
+      return const Center(
+        child: Text(
+          '아직 식사를 한 업체가 없습니다.',
+          style: TextStyle(color: Colors.white70, fontSize: 16),
+        ),
+      );
+    }
     return ListView.builder(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       itemCount: companies.length,
