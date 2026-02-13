@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gongbab_owner/domain/entities/dashboard/daily_dashboard.dart';
 import 'package:gongbab_owner/presentation/router/app_router.dart';
-
+import 'package:gongbab_owner/presentation/screens/daily_meal_count_status/daily_meal_count_status_event.dart';
+import 'package:gongbab_owner/presentation/screens/daily_meal_count_status/daily_meal_count_status_ui_state.dart';
+import 'package:gongbab_owner/presentation/screens/daily_meal_count_status/daily_meal_count_status_view_model.dart';
 import '../../widgets/date_picker_dialog.dart';
 
 class DailyMealCountStatusScreen extends StatefulWidget {
@@ -15,51 +19,39 @@ class DailyMealCountStatusScreen extends StatefulWidget {
 
 class _DailyMealCountStatusScreenState
     extends State<DailyMealCountStatusScreen> {
+  late DailyMealCountStatusViewModel _viewModel;
   DateTime selectedDate = DateTime.now();
-  DateTime lastUpdateTime = DateTime.now();
+  // TODO: 실제 레스토랑 ID를 가져오는 로직으로 교체 필요
+  final String _restaurantId = 'owner_restaurant_id_example'; 
 
-  final List<CompanyMealData> companies = [
-    CompanyMealData(
-      name: '대성정밀',
-      subtitle: '남품 완료',
-      count: 145,
-      icon: Icons.business,
-    ),
-    CompanyMealData(
-      name: '한성테크',
-      subtitle: '남품 완료',
-      count: 98,
-      icon: Icons.factory,
-    ),
-    CompanyMealData(
-      name: '유진산업',
-      subtitle: '남품 완료',
-      count: 210,
-      icon: Icons.apartment,
-    ),
-    CompanyMealData(
-      name: '동양기공',
-      subtitle: '남품 완료',
-      count: 76,
-      icon: Icons.domain,
-    ),
-    CompanyMealData(
-      name: '성광건설',
-      subtitle: '진행 중',
-      count: 320,
-      icon: Icons.location_city,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = GetIt.instance<DailyMealCountStatusViewModel>();
+    _viewModel.addListener(_onViewModelChange);
+    _loadDashboardData();
+  }
 
-  int get totalCount =>
-      companies.fold(0, (sum, company) => sum + company.count);
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onViewModelChange);
+    super.dispose();
+  }
+
+  void _onViewModelChange() {
+    setState(() {});
+  }
+
+  void _loadDashboardData() {
+    final formattedDate = selectedDate.toIso8601String().split('T').first;
+    _viewModel.onEvent(LoadDailyDashboard(
+      restaurantId: _restaurantId,
+      date: formattedDate,
+    ));
+  }
 
   Future<void> _onRefresh() async {
-    // TODO: API call to refresh data
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() {
-      lastUpdateTime = DateTime.now();
-    });
+    _loadDashboardData();
   }
 
   Future<void> _selectDate() async {
@@ -69,6 +61,7 @@ class _DailyMealCountStatusScreenState
       onDateSelected: (date) {
         setState(() {
           selectedDate = date;
+          _loadDashboardData(); // 날짜 변경 시 데이터 다시 불러오기
         });
       },
     );
@@ -78,11 +71,11 @@ class _DailyMealCountStatusScreenState
     context.push(AppRoutes.monthlySettlement);
   }
 
-  void _navigateToCompanyDetail(CompanyMealData company) {
+  void _navigateToCompanyDetail(DailyDashboardCompany company) {
     context.push(
       AppRoutes.companyMealDetail,
       extra: {
-        'companyName': company.name,
+        'companyName': company.companyName,
         'selectedDate': selectedDate,
       },
     );
@@ -94,7 +87,8 @@ class _DailyMealCountStatusScreenState
     return '${date.year}년 ${date.month}월 ${date.day}일 ($weekday)';
   }
 
-  String _formatUpdateTime(DateTime time) {
+  String _formatUpdateTime(DateTime? time) {
+    if (time == null) return '최근 업데이트: 정보 없음';
     final hour = time.hour > 12 ? time.hour - 12 : time.hour;
     final period = time.hour >= 12 ? '오후' : '오전';
     return '최근 업데이트: $period $hour:${time.minute.toString().padLeft(2, '0')}';
@@ -107,32 +101,41 @@ class _DailyMealCountStatusScreenState
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             _buildHeader(),
-            // Body with ScrollToRefresh
             Expanded(
-              child: RefreshIndicator(
-                onRefresh: _onRefresh,
-                color: const Color(0xFF3B82F6),
-                backgroundColor: const Color(0xFF1A2332),
-                child: Column(
-                  children: [
-                    // Dashboard label and update time
-                    _buildDashboardHeader(),
-                    // Company list (scrollable)
-                    Expanded(
-                      child: _buildCompanyList(),
-                    ),
-                    // Total summary (fixed at bottom)
-                    _buildTotalSummary(),
-                  ],
-                ),
-              ),
+              child: _buildBody(_viewModel.uiState),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildBody(DailyMealCountStatusUiState state) {
+    if (state is Loading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (state is Error) {
+      return Center(
+        child: Text(
+          state.message,
+          style: const TextStyle(color: Colors.white),
+        ),
+      );
+    } else if (state is Success) {
+      return RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: const Color(0xFF3B82F6),
+        backgroundColor: const Color(0xFF1A2332),
+        child: Column(
+          children: [
+            _buildDashboardHeader(state.lastUpdateTime),
+            Expanded(child: _buildCompanyList(state.companies)),
+            _buildTotalSummary(state.companies),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink(); // Initial state or unknown state
   }
 
   Widget _buildHeader() {
@@ -141,7 +144,6 @@ class _DailyMealCountStatusScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Calendar icon
           InkWell(
             onTap: _selectDate,
             borderRadius: BorderRadius.circular(12.r),
@@ -158,8 +160,6 @@ class _DailyMealCountStatusScreenState
               ),
             ),
           ),
-
-          // Selected date
           Text(
             _formatDate(selectedDate),
             style: TextStyle(
@@ -168,8 +168,6 @@ class _DailyMealCountStatusScreenState
               fontWeight: FontWeight.bold,
             ),
           ),
-
-          // Document icon
           InkWell(
             onTap: _navigateToMonthlySettlement,
             borderRadius: BorderRadius.circular(12.r),
@@ -191,7 +189,7 @@ class _DailyMealCountStatusScreenState
     );
   }
 
-  Widget _buildDashboardHeader() {
+  Widget _buildDashboardHeader(DateTime lastUpdateTime) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
       child: Column(
@@ -237,7 +235,7 @@ class _DailyMealCountStatusScreenState
     );
   }
 
-  Widget _buildCompanyList() {
+  Widget _buildCompanyList(List<DailyDashboardCompany> companies) {
     return ListView.builder(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       itemCount: companies.length,
@@ -247,7 +245,30 @@ class _DailyMealCountStatusScreenState
     );
   }
 
-  Widget _buildCompanyCard(CompanyMealData company) {
+  Widget _buildCompanyCard(DailyDashboardCompany company) {
+    // TODO: 아이콘 API 응답에 따라 수정 필요
+    // 현재는 companyName에 따라 임의의 아이콘을 할당
+    IconData companyIcon;
+    switch (company.companyName) {
+      case '대성정밀':
+        companyIcon = Icons.business;
+        break;
+      case '한성테크':
+        companyIcon = Icons.factory;
+        break;
+      case '유진산업':
+        companyIcon = Icons.apartment;
+        break;
+      case '동양기공':
+        companyIcon = Icons.domain;
+        break;
+      case '성광건설':
+        companyIcon = Icons.location_city;
+        break;
+      default:
+        companyIcon = Icons.business;
+    }
+
     return GestureDetector(
       onTap: () => _navigateToCompanyDetail(company),
       child: Container(
@@ -263,7 +284,6 @@ class _DailyMealCountStatusScreenState
         ),
         child: Row(
           children: [
-            // Icon
             Container(
               padding: EdgeInsets.all(14.w),
               decoration: BoxDecoration(
@@ -271,20 +291,18 @@ class _DailyMealCountStatusScreenState
                 borderRadius: BorderRadius.circular(12.r),
               ),
               child: Icon(
-                company.icon,
+                companyIcon,
                 color: const Color(0xFF3B82F6),
                 size: 28.sp,
               ),
             ),
             SizedBox(width: 8.w),
-
-            // Company info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    company.name,
+                    company.companyName,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 14.sp,
@@ -292,7 +310,7 @@ class _DailyMealCountStatusScreenState
                     ),
                   ),
                   Text(
-                    company.subtitle,
+                    '${company.meals}식',
                     style: TextStyle(
                       color: const Color(0xFF6B7280),
                       fontSize: 12.sp,
@@ -301,13 +319,11 @@ class _DailyMealCountStatusScreenState
                 ],
               ),
             ),
-
-            // Count
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  company.count.toString(),
+                  company.meals.toString(),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20.sp,
@@ -329,7 +345,9 @@ class _DailyMealCountStatusScreenState
     );
   }
 
-  Widget _buildTotalSummary() {
+  Widget _buildTotalSummary(List<DailyDashboardCompany> companies) {
+    final totalCount = companies.fold(0, (sum, company) => sum + company.meals);
+
     return Container(
       margin: EdgeInsets.all(16.w),
       padding: EdgeInsets.all(12.w),
@@ -392,18 +410,4 @@ class _DailyMealCountStatusScreenState
       ),
     );
   }
-}
-
-class CompanyMealData {
-  final String name;
-  final String subtitle;
-  final int count;
-  final IconData icon;
-
-  CompanyMealData({
-    required this.name,
-    required this.subtitle,
-    required this.count,
-    required this.icon,
-  });
 }

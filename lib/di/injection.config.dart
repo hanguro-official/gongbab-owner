@@ -31,6 +31,8 @@ import '../domain/usecases/get_daily_dashboard_usecase.dart' as _i413;
 import '../domain/usecases/get_meal_logs_usecase.dart' as _i865;
 import '../domain/usecases/get_monthly_settlement_usecase.dart' as _i351;
 import '../domain/usecases/login_usecase.dart' as _i634;
+import '../presentation/screens/daily_meal_count_status/daily_meal_count_status_view_model.dart'
+    as _i395;
 import '../presentation/screens/login/login_view_model.dart' as _i568;
 import 'injection.dart' as _i464;
 
@@ -89,6 +91,9 @@ extension GetItInjectableX on _i174.GetIt {
         _i351.GetMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
     gh.factory<_i801.ExportMonthlySettlementUseCase>(() =>
         _i801.ExportMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
+    gh.factory<_i395.DailyMealCountStatusViewModel>(() =>
+        _i395.DailyMealCountStatusViewModel(
+            gh<_i413.GetDailyDashboardUseCase>()));
     return this;
   }
 }
