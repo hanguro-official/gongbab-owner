@@ -28,7 +28,7 @@ class LoginViewModel extends ChangeNotifier {
 
       final result = await _loginUseCase.execute(
         code: event.code.toUpperCase(),
-        deviceType: 'KIOSK',
+        deviceType: 'OWNER_APP',
         deviceId: deviceId,
       );
 
@@ -45,15 +45,11 @@ class LoginViewModel extends ChangeNotifier {
         },
         failure: (bool success, Map<String, dynamic>? error) {
           final errorCode = error?['code'] as String?;
-          final errorMessage = error?['message'] as String?; // Fixed extraction
-          final errorDetails = error?['details'] as List<dynamic>?; // Fixed extraction
 
           if (errorCode == 'VALIDATION_ERROR') {
             _uiState = Failure(ShowAlertDialog( // Changed to Failure
               title: '로그인 실패',
-              content: errorDetails != null && errorDetails.isNotEmpty // Use errorDetails if available
-                  ? errorDetails[0]['message'] as String?
-                  : '코드 형식이 올바르지 않습니다',
+              content: '코드 형식이 올바르지 않습니다',
               rightButtonText: '확인',
               onRightButtonPressed: () {}, // Handled by screen to pop
             ));
@@ -67,7 +63,7 @@ class LoginViewModel extends ChangeNotifier {
           } else {
             _uiState = Failure(ShowAlertDialog( // Changed to Failure
               title: '로그인 실패',
-              content: errorMessage ?? '알 수 없는 오류가 발생했습니다.', // Use errorMessage
+              content: '알 수 없는 오류가 발생했습니다.', // Use errorMessage
               rightButtonText: '확인',
               onRightButtonPressed: () {}, // Handled by screen to pop
             ));
