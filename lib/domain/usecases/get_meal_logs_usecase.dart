@@ -1,9 +1,7 @@
 import 'package:gongbab_owner/domain/entities/meal_log/meal_log.dart';
 import 'package:gongbab_owner/domain/repositories/meal_log_repository.dart';
 import 'package:gongbab_owner/domain/utils/result.dart';
-import 'package:injectable/injectable.dart';
 
-@injectable
 class GetMealLogsUseCase {
   final MealLogRepository _mealLogRepository;
 
