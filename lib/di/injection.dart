@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:gongbab_owner/di/injection.config.dart';
+import 'package:gongbab_owner/domain/repositories/dashboard_repository.dart';
+import 'package:gongbab_owner/domain/usecases/get_daily_dashboard_usecase.dart';
 import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,6 +29,11 @@ abstract class RegisterModule {
   @lazySingleton
   LoginUseCase loginUseCase(AuthRepository repository, AuthTokenManager authTokenManager) {
     return LoginUseCase(repository, authTokenManager);
+  }
+
+  @lazySingleton
+  GetDailyDashboardUseCase getDailyDashboardUseCase(DashboardRepository repository) {
+    return GetDailyDashboardUseCase(repository);
   }
 
   @lazySingleton // Provide Dio instance

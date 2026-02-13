@@ -31,11 +31,11 @@ class DailyDashboardCompanyModel {
 
 @JsonSerializable()
 class DailyDashboardByMealTypeModel {
-  @JsonKey(name: 'additionalProp1')
+  @JsonKey(name: 'BREAKFAST')
   final int additionalProp1;
-  @JsonKey(name: 'additionalProp2')
+  @JsonKey(name: 'LUNCH')
   final int additionalProp2;
-  @JsonKey(name: 'additionalProp3')
+  @JsonKey(name: 'DINNER')
   final int additionalProp3;
 
   DailyDashboardByMealTypeModel({
@@ -61,7 +61,7 @@ class DailyDashboardByMealTypeModel {
 @JsonSerializable()
 class DailyDashboardModel {
   final String date;
-  final String lastUpdatedAt;
+  final String? lastUpdatedAt;
   final DailyDashboardByMealTypeModel byMealType;
   final int totalMeals;
   final List<DailyDashboardCompanyModel> companies;

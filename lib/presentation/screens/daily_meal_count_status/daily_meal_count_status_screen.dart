@@ -84,11 +84,15 @@ class _DailyMealCountStatusScreenState
     return '${date.year}년 ${date.month}월 ${date.day}일 ($weekday)';
   }
 
-  String _formatUpdateTime(DateTime? time) {
-    if (time == null) return '최근 업데이트: 정보 없음';
-    final hour = time.hour > 12 ? time.hour - 12 : time.hour;
-    final period = time.hour >= 12 ? '오후' : '오전';
-    return '최근 업데이트: $period $hour:${time.minute.toString().padLeft(2, '0')}';
+  String _formatUpdateTime(String? time) {
+    if (time == null || time.isEmpty) return '최근 업데이트: 정보 없음';
+
+    final dateTime = DateTime.tryParse(time);
+    if (dateTime == null) return '최근 업데이트: 정보 없음';
+
+    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+    final period = dateTime.hour >= 12 ? '오후' : '오전';
+    return '최근 업데이트: $period $hour:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -186,7 +190,7 @@ class _DailyMealCountStatusScreenState
     );
   }
 
-  Widget _buildDashboardHeader(DateTime lastUpdateTime) {
+  Widget _buildDashboardHeader(String? lastUpdateTime) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
       child: Column(

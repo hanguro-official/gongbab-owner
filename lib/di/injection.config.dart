@@ -26,11 +26,9 @@ import '../domain/repositories/auth_repository.dart' as _i800;
 import '../domain/repositories/dashboard_repository.dart' as _i525;
 import '../domain/repositories/meal_log_repository.dart' as _i637;
 import '../domain/repositories/settlement_repository.dart' as _i85;
-import '../domain/usecases/export_monthly_settlement_usecase.dart' as _i801;
 import '../domain/usecases/get_daily_dashboard_usecase.dart' as _i413;
-import '../domain/usecases/get_meal_logs_usecase.dart' as _i865;
-import '../domain/usecases/get_monthly_settlement_usecase.dart' as _i351;
 import '../domain/usecases/login_usecase.dart' as _i634;
+import '../presentation/router/app_router.dart' as _i223;
 import '../presentation/screens/daily_meal_count_status/daily_meal_count_status_view_model.dart'
     as _i395;
 import '../presentation/screens/login/login_view_model.dart' as _i568;
@@ -60,6 +58,8 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i702.AuthTokenManager>(),
           gh<_i361.Dio>(),
         ));
+    gh.singleton<_i223.AppRouter>(
+        () => _i223.AppRouter(gh<_i702.AuthTokenManager>()));
     gh.singleton<_i133.AppApiClient>(() => _i133.AppApiClient(
           gh<_i702.AuthTokenManager>(),
           gh<_i361.Dio>(),
@@ -72,8 +72,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i585.DashboardRepositoryImpl(gh<_i589.ApiService>()));
     gh.factory<_i85.SettlementRepository>(
         () => _i916.SettlementRepositoryImpl(gh<_i589.ApiService>()));
-    gh.factory<_i865.GetMealLogsUseCase>(
-        () => _i865.GetMealLogsUseCase(gh<_i637.MealLogRepository>()));
+    gh.lazySingleton<_i413.GetDailyDashboardUseCase>(() => registerModule
+        .getDailyDashboardUseCase(gh<_i525.DashboardRepository>()));
     gh.lazySingleton<_i800.AuthRepository>(
         () => _i74.AuthRepositoryImpl(gh<_i589.ApiService>()));
     gh.lazySingleton<_i634.LoginUseCase>(() => registerModule.loginUseCase(
@@ -85,15 +85,11 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i702.AuthTokenManager>(),
           gh<_i120.DeviceInfoService>(),
         ));
-    gh.factory<_i413.GetDailyDashboardUseCase>(
-        () => _i413.GetDailyDashboardUseCase(gh<_i525.DashboardRepository>()));
-    gh.factory<_i351.GetMonthlySettlementUseCase>(() =>
-        _i351.GetMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
-    gh.factory<_i801.ExportMonthlySettlementUseCase>(() =>
-        _i801.ExportMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
-    gh.factory<_i395.DailyMealCountStatusViewModel>(() =>
-        _i395.DailyMealCountStatusViewModel(
-            gh<_i413.GetDailyDashboardUseCase>()));
+    gh.factory<_i395.DailyMealCountStatusViewModel>(
+        () => _i395.DailyMealCountStatusViewModel(
+              gh<_i702.AuthTokenManager>(),
+              gh<_i413.GetDailyDashboardUseCase>(),
+            ));
     return this;
   }
 }

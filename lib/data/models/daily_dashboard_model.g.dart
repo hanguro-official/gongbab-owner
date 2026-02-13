@@ -25,23 +25,23 @@ Map<String, dynamic> _$DailyDashboardCompanyModelToJson(
 DailyDashboardByMealTypeModel _$DailyDashboardByMealTypeModelFromJson(
         Map<String, dynamic> json) =>
     DailyDashboardByMealTypeModel(
-      additionalProp1: (json['additionalProp1'] as num).toInt(),
-      additionalProp2: (json['additionalProp2'] as num).toInt(),
-      additionalProp3: (json['additionalProp3'] as num).toInt(),
+      additionalProp1: (json['BREAKFAST'] as num).toInt(),
+      additionalProp2: (json['LUNCH'] as num).toInt(),
+      additionalProp3: (json['DINNER'] as num).toInt(),
     );
 
 Map<String, dynamic> _$DailyDashboardByMealTypeModelToJson(
         DailyDashboardByMealTypeModel instance) =>
     <String, dynamic>{
-      'additionalProp1': instance.additionalProp1,
-      'additionalProp2': instance.additionalProp2,
-      'additionalProp3': instance.additionalProp3,
+      'BREAKFAST': instance.additionalProp1,
+      'LUNCH': instance.additionalProp2,
+      'DINNER': instance.additionalProp3,
     };
 
 DailyDashboardModel _$DailyDashboardModelFromJson(Map<String, dynamic> json) =>
     DailyDashboardModel(
       date: json['date'] as String,
-      lastUpdatedAt: json['lastUpdatedAt'] as String,
+      lastUpdatedAt: json['lastUpdatedAt'] as String?,
       byMealType: DailyDashboardByMealTypeModel.fromJson(
           json['byMealType'] as Map<String, dynamic>),
       totalMeals: (json['totalMeals'] as num).toInt(),

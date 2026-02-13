@@ -24,7 +24,7 @@ class DailyDashboardByMealType {
 
 class DailyDashboard {
   final String date;
-  final String lastUpdatedAt;
+  final String? lastUpdatedAt;
   final DailyDashboardByMealType byMealType;
   final int totalMeals;
   final List<DailyDashboardCompany> companies;
