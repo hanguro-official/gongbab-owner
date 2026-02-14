@@ -19,7 +19,7 @@ class MonthlySettlement {
   final int totalMeals;
   final int totalAmount;
   final List<MonthlySettlementCompany> companies;
-  final String generatedAt;
+  final String? generatedAt;
 
   MonthlySettlement({
     required this.month,

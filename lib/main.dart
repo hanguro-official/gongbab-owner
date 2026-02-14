@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
           title: 'Gongbab Owner',
           theme: ThemeData(
             brightness: Brightness.dark,
-            primaryColor: const Color(0xFF3b82f6),
+            primaryColor: const Color(0xFF1a1f2e),
             scaffoldBackgroundColor: const Color(0xFF1a1f2e),
             fontFamily: 'Pretendard', //
           ),

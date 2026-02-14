@@ -26,12 +26,19 @@ import '../domain/repositories/auth_repository.dart' as _i800;
 import '../domain/repositories/dashboard_repository.dart' as _i525;
 import '../domain/repositories/meal_log_repository.dart' as _i637;
 import '../domain/repositories/settlement_repository.dart' as _i85;
+import '../domain/usecases/export_monthly_settlement_usecase.dart' as _i801;
 import '../domain/usecases/get_daily_dashboard_usecase.dart' as _i413;
+import '../domain/usecases/get_meal_logs_usecase.dart' as _i865;
+import '../domain/usecases/get_monthly_settlement_usecase.dart' as _i351;
 import '../domain/usecases/login_usecase.dart' as _i634;
 import '../presentation/router/app_router.dart' as _i223;
+import '../presentation/screens/company_meal_detail/company_meal_detail_view_model.dart'
+    as _i23;
 import '../presentation/screens/daily_meal_count_status/daily_meal_count_status_view_model.dart'
     as _i395;
 import '../presentation/screens/login/login_view_model.dart' as _i568;
+import '../presentation/screens/monthly_settlement/monthly_settlement_view_model.dart'
+    as _i234;
 import 'injection.dart' as _i464;
 
 extension GetItInjectableX on _i174.GetIt {
@@ -76,19 +83,36 @@ extension GetItInjectableX on _i174.GetIt {
         .getDailyDashboardUseCase(gh<_i525.DashboardRepository>()));
     gh.lazySingleton<_i800.AuthRepository>(
         () => _i74.AuthRepositoryImpl(gh<_i589.ApiService>()));
+    gh.lazySingleton<_i351.GetMonthlySettlementUseCase>(() => registerModule
+        .getMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
+    gh.lazySingleton<_i801.ExportMonthlySettlementUseCase>(() => registerModule
+        .exportMonthlySettlementUseCase(gh<_i85.SettlementRepository>()));
     gh.lazySingleton<_i634.LoginUseCase>(() => registerModule.loginUseCase(
           gh<_i800.AuthRepository>(),
           gh<_i702.AuthTokenManager>(),
         ));
+    gh.factory<_i234.MonthlySettlementViewModel>(
+        () => _i234.MonthlySettlementViewModel(
+              gh<_i702.AuthTokenManager>(),
+              gh<_i351.GetMonthlySettlementUseCase>(),
+              gh<_i801.ExportMonthlySettlementUseCase>(),
+            ));
     gh.factory<_i568.LoginViewModel>(() => _i568.LoginViewModel(
           gh<_i634.LoginUseCase>(),
           gh<_i702.AuthTokenManager>(),
           gh<_i120.DeviceInfoService>(),
         ));
+    gh.lazySingleton<_i865.GetMealLogsUseCase>(
+        () => registerModule.getMealLogsUseCase(gh<_i637.MealLogRepository>()));
     gh.factory<_i395.DailyMealCountStatusViewModel>(
         () => _i395.DailyMealCountStatusViewModel(
               gh<_i702.AuthTokenManager>(),
               gh<_i413.GetDailyDashboardUseCase>(),
+            ));
+    gh.factory<_i23.CompanyMealDetailViewModel>(
+        () => _i23.CompanyMealDetailViewModel(
+              gh<_i702.AuthTokenManager>(),
+              gh<_i865.GetMealLogsUseCase>(),
             ));
     return this;
   }

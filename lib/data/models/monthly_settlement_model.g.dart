@@ -36,7 +36,7 @@ MonthlySettlementModel _$MonthlySettlementModelFromJson(
           .map((e) =>
               MonthlySettlementCompanyModel.fromJson(e as Map<String, dynamic>))
           .toList(),
-      generatedAt: json['generatedAt'] as String,
+      generatedAt: json['generatedAt'] as String?,
     );
 
 Map<String, dynamic> _$MonthlySettlementModelToJson(

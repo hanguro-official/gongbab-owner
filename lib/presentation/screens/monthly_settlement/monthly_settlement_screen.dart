@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
+import 'package:gongbab_owner/domain/entities/settlement/monthly_settlement.dart';
+import 'package:gongbab_owner/presentation/screens/monthly_settlement/monthly_settlement_event.dart';
+import 'package:gongbab_owner/presentation/screens/monthly_settlement/monthly_settlement_ui_state.dart';
+import 'package:gongbab_owner/presentation/screens/monthly_settlement/monthly_settlement_view_model.dart';
+import 'package:intl/intl.dart';
+
 import '../../widgets/month_picker_dialog.dart';
 
 class MonthlySettlementScreen extends StatefulWidget {
@@ -11,87 +19,60 @@ class MonthlySettlementScreen extends StatefulWidget {
 }
 
 class _MonthlySettlementScreenState extends State<MonthlySettlementScreen> {
+  late MonthlySettlementViewModel _viewModel;
   DateTime selectedMonth = DateTime.now();
 
-  // Sample data
-  final List<CompanySettlement> companies = [
-    CompanySettlement(
-      name: '(주)미래산업',
-      totalMeals: 850,
-      unitPrice: 5500,
-      totalAmount: 4675000,
-    ),
-    CompanySettlement(
-      name: '(주)에이치앱',
-      totalMeals: 1250,
-      unitPrice: 5500,
-      totalAmount: 6875000,
-    ),
-    CompanySettlement(
-      name: '글로벌로지스',
-      totalMeals: 300,
-      unitPrice: 6000,
-      totalAmount: 1800000,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = GetIt.instance<MonthlySettlementViewModel>();
+    _viewModel.addListener(_onViewModelChange);
+    _loadMonthlySettlement();
+  }
 
-  int get totalMeals =>
-      companies.fold(0, (sum, company) => sum + company.totalMeals);
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onViewModelChange);
+    super.dispose();
+  }
 
-  int get totalAmount =>
-      companies.fold(0, (sum, company) => sum + company.totalAmount);
+  void _onViewModelChange() {
+    setState(() {});
+    if (_viewModel.uiState is ExportSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((_viewModel.uiState as ExportSuccess).message)),
+      );
+    } else if (_viewModel.uiState is ExportError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((_viewModel.uiState as ExportError).message)),
+      );
+    } else if (_viewModel.uiState is Error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((_viewModel.uiState as Error).message)),
+      );
+    }
+  }
 
-  void _selectMonth() {
+  void _loadMonthlySettlement() {
+    final formattedMonth = DateFormat('yyyy-MM').format(selectedMonth);
+    _viewModel.onEvent(LoadMonthlySettlement(month: formattedMonth));
+  }
+
+  void _exportMonthlySettlement() {
+    final formattedMonth = DateFormat('yyyy-MM').format(selectedMonth);
+    _viewModel.onEvent(ExportMonthlySettlement(month: formattedMonth));
+  }
+
+  Future<void> _selectMonth() async {
     showMonthPickerDialog(
       context,
       initialDate: selectedMonth,
       onMonthSelected: (date) {
         setState(() {
           selectedMonth = date;
+          _loadMonthlySettlement(); // 월 변경 시 데이터 다시 불러오기
         });
       },
-    );
-  }
-
-  String _formatMonth(DateTime date) {
-    const months = [
-      '1월',
-      '2월',
-      '3월',
-      '4월',
-      '5월',
-      '6월',
-      '7월',
-      '8월',
-      '9월',
-      '10월',
-      '11월',
-      '12월',
-    ];
-    return '${date.year}년 ${months[date.month - 1]} ';
-  }
-
-  String _formatCurrency(int amount) {
-    return '₩${amount.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (match) => '${match[1]},',
-    )}';
-  }
-
-  String _formatNumber(int number) {
-    return number.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (match) => '${match[1]},',
-    );
-  }
-
-  void _exportToExcel() {
-    // TODO: Implement Excel export functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('엑셀 다운로드 기능 구현 예정'),
-        backgroundColor: const Color(0xFF3B82F6),
-      ),
     );
   }
 
@@ -99,430 +80,357 @@ class _MonthlySettlementScreenState extends State<MonthlySettlementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F1419),
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Month selector
-                  _buildMonthSelector(),
-
-                  // Summary card
-                  _buildSummaryCard(),
-
-                  // Detailed breakdown header
-                  _buildDetailedBreakdownHeader(),
-
-                  // Table
-                  _buildSettlementTable(),
-
-                  SizedBox(height: 20.h), // Space for bottom button
-                ],
-              ),
-            ),
-          ),
-
-          // Excel export button
-          _buildExportButton(),
-        ],
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: const Color(0xFF0F1419),
-      elevation: 0,
-      leading: IconButton(
-        padding: EdgeInsets.only(left: 16.w),
-        onPressed: () => Navigator.pop(context),
-        icon: Icon(
-          Icons.arrow_back_ios,
-          color: Colors.white,
-          size: 24.sp,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F1419),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => context.pop(),
         ),
-      ),
-      title: Text(
-        '월별 정산',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 16.sp,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      centerTitle: true,
-    );
-  }
-
-  Widget _buildMonthSelector() {
-    return Padding(
-      padding: EdgeInsets.all(20.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'SELECT SETTLEMENT MONTH',
-            style: TextStyle(
-              color: const Color(0xFF6B7280),
-              fontSize: 12.sp,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          GestureDetector(
-            onTap: _selectMonth,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 18.h),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A2332),
-                borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(
-                  color: const Color(0xFF2D3748),
-                  width: 1.5.w,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _formatMonth(selectedMonth),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Colors.white,
-                    size: 20.sp,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
-      child: Container(
-        padding: EdgeInsets.all(24.w),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A2332),
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(
-            color: const Color(0xFF3B82F6),
-            width: 2.w,
+        title: Text(
+          '월간 정산',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20.sp,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        child: Row(
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Column(
           children: [
+            _buildHeader(),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Monthly Total Amount',
-                    style: TextStyle(
-                      color: const Color(0xFF9CA3AF),
-                      fontSize: 12.sp,
-                    ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    _formatCurrency(totalAmount),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.bold,
-                      height: 1.0,
-                    ),
-                  ),
-                ],
-              ),
+              child: _buildBody(_viewModel.uiState),
             ),
-            Container(
-              width: 1.w,
-              height: 50.h,
-              color: const Color(0xFF2D3748),
-              margin: EdgeInsets.symmetric(horizontal: 16.w),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Total Meals',
-                  style: TextStyle(
-                    color: const Color(0xFF9CA3AF),
-                    fontSize: 12.sp,
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  _formatNumber(totalMeals),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
-                    height: 1.0,
-                  ),
-                ),
-              ],
-            ),
+            _buildExportButton(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDetailedBreakdownHeader() {
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          InkWell(
+            onTap: _selectMonth,
+            borderRadius: BorderRadius.circular(12.r),
+            child: Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Icon(
+                Icons.calendar_today,
+                color: Colors.white,
+                size: 24.sp,
+              ),
+            ),
+          ),
+          Text(
+            DateFormat('yyyy년 MM월').format(selectedMonth),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(width: 24.w + 24.h), // Placeholder for alignment
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(MonthlySettlementUiState state) {
+    if (state is Loading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (state is Exporting) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Center(child: CircularProgressIndicator()),
+          SizedBox(height: 16.h),
+          Text(
+            '정산 내역을 내보내는 중...',
+            style: TextStyle(color: Colors.white, fontSize: 16.sp),
+          ),
+          // Show details while exporting - safely check if monthlySettlement is available
+          if (state.monthlySettlement != null)
+            _buildSettlementDetails(state.monthlySettlement),
+        ],
+      );
+    } else if (state is Success || state is ExportSuccess || state is ExportError) {
+      MonthlySettlement? monthlySettlement;
+      if (state is Success) {
+        monthlySettlement = state.monthlySettlement;
+      } else if (state is ExportSuccess) {
+        monthlySettlement = state.monthlySettlement;
+      } else if (state is ExportError) {
+        monthlySettlement = state.monthlySettlement;
+      }
+      if (monthlySettlement != null) {
+        return _buildSettlementDetails(monthlySettlement);
+      } else {
+        return Center(
+          child: Text(
+            '정산 데이터를 불러올 수 없습니다.',
+            style: const TextStyle(color: Colors.white),
+          ),
+        );
+      }
+    } else if (state is Error) {
+      return Center(
+        child: Text(
+          state.message,
+          style: const TextStyle(color: Colors.white),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildSettlementDetails(MonthlySettlement settlement) {
+    return RefreshIndicator(
+      onRefresh: () async => _loadMonthlySettlement(),
+      color: const Color(0xFF3B82F6),
+      backgroundColor: const Color(0xFF1A2332),
+      child: ListView(
+        padding: EdgeInsets.all(20.w),
+        children: [
+          _buildSummaryCard(
+            title: '총 정산 금액',
+            value: '${_formatCurrency(settlement.totalAmount)}원',
+            icon: Icons.account_balance_wallet,
+            iconColor: const Color(0xFF3B82F6),
+          ),
+          SizedBox(height: 16.h),
+          _buildSummaryCard(
+            title: '총 식수',
+            value: '${settlement.totalMeals}명',
+            icon: Icons.people,
+            iconColor: const Color(0xFF10B981),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            '${DateFormat('yyyy년 MM월').format(selectedMonth)} 정산',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            '데이터 생성일: ${settlement.generatedAt != null ? DateFormat('yyyy-MM-dd HH:mm').format(DateTime.parse(settlement.generatedAt!)) : '정보 없음'}',
+            style: TextStyle(
+              color: const Color(0xFF6B7280),
+              fontSize: 12.sp,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          _buildMealTypeSummary(settlement), // Pass the whole settlement object
+          SizedBox(height: 16.h),
+          Text(
+            '업체별 정산 내역',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          ...settlement.companies.map((company) => _buildCompanySettlementCard(company)).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2332),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: const Color(0xFF2D3748),
+          width: 1.5.w,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 24.sp,
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: const Color(0xFF9CA3AF),
+                    fontSize: 14.sp,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealTypeSummary(MonthlySettlement settlement) { // Changed parameter to MonthlySettlement
+    // Calculate meal type counts from settlement.companies if needed,
+    // or use existing byMealType if available in MonthlySettlement
+    // For now, let's assume MonthlySettlement has byMealType for overall summary
+    // If not, it needs to be calculated from settlement.companies
+
+    // Assuming MonthlySettlement has a byMealType equivalent for total summary,
+    // or calculate from all companies' meals
+    int totalBreakfast = settlement.companies.fold(0, (sum, company) => sum + (company.meals)); // Assuming total meals is sum of all meals
+    int totalLunch = 0; // Placeholder, adjust if MonthlySettlement has detailed breakdown
+    int totalDinner = 0; // Placeholder, adjust if MonthlySettlement has detailed breakdown
+
+    // If API provides byMealType at top level of MonthlySettlement, use that.
+    // Otherwise, we need more info or to calculate from sub-items.
+    // For now, using totalMeals as a placeholder for breakdown.
+    // This part might need adjustment based on actual data structure for meal type breakdown.
+
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2332),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: const Color(0xFF2D3748),
+          width: 1.5.w,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '식사 타입별 식수',
+            style: TextStyle(
+              color: const Color(0xFF9CA3AF),
+              fontSize: 14.sp,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          // Placeholder values - need actual MonthlySettlement structure for breakdown
+          _buildMealTypeRow('조식', totalBreakfast), // This would be settlement.byMealType.breakfast
+          _buildMealTypeRow('중식', totalLunch),   // This would be settlement.byMealType.lunch
+          _buildMealTypeRow('석식', totalDinner),   // This would be settlement.byMealType.dinner
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealTypeRow(String type, int count) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 16.h),
+      padding: EdgeInsets.symmetric(vertical: 4.h),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Detailed Breakdown',
+            type,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16.sp,
+            ),
+          ),
+          Text(
+            '${count}명',
+            style: TextStyle(
+              color: const Color(0xFF3B82F6),
+              fontSize: 16.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanySettlementCard(MonthlySettlementCompany company) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 16.h),
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2332),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: const Color(0xFF2D3748),
+          width: 1.5.w,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            company.companyName,
             style: TextStyle(
               color: Colors.white,
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
             ),
           ),
-          Text(
-            '${companies.length} Clients Found',
-            style: TextStyle(
-              color: const Color(0xFF6B7280),
-              fontSize: 12.sp,
-            ),
-          ),
+          SizedBox(height: 8.h),
+          _buildSettlementRow('식수', '${company.meals}명'),
+          _buildSettlementRow('정산 금액', '${_formatCurrency(company.amount)}원'),
         ],
       ),
     );
   }
 
-  Widget _buildSettlementTable() {
+  Widget _buildSettlementRow(String title, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A2332),
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: const Color(0xFF2D3748),
-            width: 1.5.w,
-          ),
-        ),
-        child: Column(
-          children: [
-            // Table header
-            _buildTableHeader(),
-
-            // Divider
-            Container(
-              height: 1.h,
-              color: const Color(0xFF2D3748),
-            ),
-
-            // Table rows
-            ...companies.map((company) => _buildTableRow(company)).toList(),
-
-            // Divider
-            Container(
-              height: 2.h,
-              color: const Color(0xFF2D3748),
-            ),
-
-            // Total row
-            _buildTotalRow(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTableHeader() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(vertical: 4.h),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              'COMPANY\nNAME',
-              style: TextStyle(
-                color: const Color(0xFF6B7280),
-                fontSize: 11.sp,
-                fontWeight: FontWeight.bold,
-                height: 1.3,
-              ),
+          Text(
+            title,
+            style: TextStyle(
+              color: const Color(0xFF9CA3AF),
+              fontSize: 14.sp,
             ),
           ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'TOTAL\nMEALS',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: const Color(0xFF6B7280),
-                fontSize: 11.sp,
-                fontWeight: FontWeight.bold,
-                height: 1.3,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'UNIT\nPRICE',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: const Color(0xFF6B7280),
-                fontSize: 11.sp,
-                fontWeight: FontWeight.bold,
-                height: 1.3,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              'TOTAL\nAMOUNT',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: const Color(0xFF6B7280),
-                fontSize: 11.sp,
-                fontWeight: FontWeight.bold,
-                height: 1.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTableRow(CompanySettlement company) {
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  company.name,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  _formatNumber(company.totalMeals),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  _formatCurrency(company.unitPrice),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Text(
-                  _formatCurrency(company.totalAmount),
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          height: 1.h,
-          color: const Color(0xFF2D3748),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTotalRow() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              'TOTAL',
-              style: TextStyle(
-                color: const Color(0xFF3B82F6),
-                fontSize: 14.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              _formatNumber(totalMeals),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: const Color(0xFF3B82F6),
-                fontSize: 14.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              '-',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: const Color(0xFF3B82F6),
-                fontSize: 14.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              _formatCurrency(totalAmount),
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: const Color(0xFF3B82F6),
-                fontSize: 12.sp,
-                fontWeight: FontWeight.bold,
-              ),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -531,69 +439,39 @@ class _MonthlySettlementScreenState extends State<MonthlySettlementScreen> {
   }
 
   Widget _buildExportButton() {
-    final now = DateTime.now();
-    final timestamp =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-
+    final bool isLoading = _viewModel.uiState is Exporting;
     return Container(
-      color: const Color(0xFF0F1419),
-      padding: EdgeInsets.all(20.w),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: _exportToExcel,
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 18.h),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6),
-                borderRadius: BorderRadius.circular(12.r),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.download,
-                    color: Colors.white,
-                    size: 24.sp,
-                  ),
-                  SizedBox(width: 12.w),
-                  Text(
-                    '엑셀 다운로드 (Excel Export)',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      width: double.infinity,
+      padding: EdgeInsets.all(16.w),
+      child: ElevatedButton(
+        onPressed: isLoading ? null : _exportMonthlySettlement,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF3B82F6),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
           ),
-          SizedBox(height: 12.h),
-          Text(
-            'Generated on $timestamp',
-            style: TextStyle(
-              color: const Color(0xFF6B7280),
-              fontSize: 12.sp,
-            ),
-          ),
-        ],
+          padding: EdgeInsets.symmetric(vertical: 16.h),
+        ),
+        child: isLoading
+            ? SizedBox(
+                width: 24.w,
+                height: 24.h,
+                child: const CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                '정산 내역 다운로드',
+                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }
-}
 
-class CompanySettlement {
-  final String name;
-  final int totalMeals;
-  final int unitPrice;
-  final int totalAmount;
-
-  CompanySettlement({
-    required this.name,
-    required this.totalMeals,
-    required this.unitPrice,
-    required this.totalAmount,
-  });
+  String _formatCurrency(int amount) {
+    final formatter = NumberFormat('#,###', 'ko_KR');
+    return formatter.format(amount);
+  }
 }

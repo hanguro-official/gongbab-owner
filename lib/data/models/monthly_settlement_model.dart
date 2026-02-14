@@ -41,7 +41,7 @@ class MonthlySettlementModel {
   final int totalMeals;
   final int totalAmount;
   final List<MonthlySettlementCompanyModel> companies;
-  final String generatedAt;
+  final String? generatedAt;
 
   MonthlySettlementModel({
     required this.month,
