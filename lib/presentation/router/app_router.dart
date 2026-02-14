@@ -34,9 +34,20 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.companyMealDetail,
           builder: (BuildContext context, GoRouterState state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            final companyId = extra?['companyId'] as int?;
+            final companyName = extra?['companyName'] as String?;
+            final selectedDate = extra?['selectedDate'] as DateTime?;
+
+            if (companyId == null || companyName == null || selectedDate == null) {
+              // Redirect to daily meal count status if essential data is missing
+              return const DailyMealCountStatusScreen();
+            }
+
             return CompanyMealDetailScreen(
-              companyName: state.pathParameters['companyName'] ?? '',
-              selectedDate: state.pathParameters['email'] as DateTime? ?? DateTime.now(),
+              companyId: companyId,
+              companyName: companyName,
+              selectedDate: selectedDate,
             );
           },
         ),
