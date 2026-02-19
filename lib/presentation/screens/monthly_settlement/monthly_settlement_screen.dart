@@ -82,6 +82,8 @@ class _MonthlySettlementScreenState extends State<MonthlySettlementScreen> {
       backgroundColor: const Color(0xFF0F1419),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F1419),
+        scrolledUnderElevation: 0,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
