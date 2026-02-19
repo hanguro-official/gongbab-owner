@@ -149,42 +149,20 @@ class _MonthlySettlementScreenState extends State<MonthlySettlementScreen> {
   }
 
   Widget _buildBody(MonthlySettlementUiState state) {
+    MonthlySettlement? monthlySettlementToDisplay;
+
+    if (state is Success) {
+      monthlySettlementToDisplay = state.monthlySettlement;
+    } else if (state is Exporting) {
+      monthlySettlementToDisplay = state.monthlySettlement;
+    } else if (state is ExportSuccess) {
+      monthlySettlementToDisplay = state.monthlySettlement;
+    } else if (state is ExportError) {
+      monthlySettlementToDisplay = state.monthlySettlement;
+    }
+
     if (state is Loading) {
       return const Center(child: CircularProgressIndicator());
-    } else if (state is Exporting) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Center(child: CircularProgressIndicator()),
-          SizedBox(height: 16.h),
-          Text(
-            '정산 내역을 내보내는 중...',
-            style: TextStyle(color: Colors.white, fontSize: 16.sp),
-          ),
-          // Show details while exporting - safely check if monthlySettlement is available
-          if (state.monthlySettlement != null)
-            _buildSettlementDetails(state.monthlySettlement),
-        ],
-      );
-    } else if (state is Success || state is ExportSuccess || state is ExportError) {
-      MonthlySettlement? monthlySettlement;
-      if (state is Success) {
-        monthlySettlement = state.monthlySettlement;
-      } else if (state is ExportSuccess) {
-        monthlySettlement = state.monthlySettlement;
-      } else if (state is ExportError) {
-        monthlySettlement = state.monthlySettlement;
-      }
-      if (monthlySettlement != null) {
-        return _buildSettlementDetails(monthlySettlement);
-      } else {
-        return Center(
-          child: Text(
-            '정산 데이터를 불러올 수 없습니다.',
-            style: const TextStyle(color: Colors.white),
-          ),
-        );
-      }
     } else if (state is Error) {
       return Center(
         child: Text(
@@ -192,8 +170,16 @@ class _MonthlySettlementScreenState extends State<MonthlySettlementScreen> {
           style: const TextStyle(color: Colors.white),
         ),
       );
+    } else if (monthlySettlementToDisplay != null) {
+      return _buildSettlementDetails(monthlySettlementToDisplay);
+    } else {
+      return Center(
+        child: Text(
+          '정산 데이터를 불러올 수 없습니다.',
+          style: const TextStyle(color: Colors.white),
+        ),
+      );
     }
-    return const SizedBox.shrink();
   }
 
   Widget _buildSettlementDetails(MonthlySettlement settlement) {
@@ -405,6 +391,7 @@ class _MonthlySettlementScreenState extends State<MonthlySettlementScreen> {
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
           SizedBox(height: 8.h),
           _buildSettlementRow('식수', '${company.meals}명'),
