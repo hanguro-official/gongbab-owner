@@ -1,3 +1,4 @@
+import 'dart:async'; // Required for Timer
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get_it/get_it.dart';
@@ -86,13 +87,18 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
   MealType selectedMealType = MealType.all;
   final TextEditingController searchController = TextEditingController();
   final ScrollController scrollController = ScrollController();
+  Timer? _searchDebounce; // For debouncing search input
 
   @override
   void initState() {
     super.initState();
     _viewModel = GetIt.instance<CompanyMealDetailViewModel>();
     _viewModel.addListener(_onViewModelChange);
-    _loadMealLogs();
+    // Initial load with current filters
+    _loadMealLogs(
+      q: searchController.text,
+      mealType: selectedMealType,
+    );
   }
 
   @override
@@ -100,6 +106,7 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
     _viewModel.removeListener(_onViewModelChange);
     searchController.dispose();
     scrollController.dispose();
+    _searchDebounce?.cancel(); // Cancel debounce timer
     super.dispose();
   }
 
@@ -107,17 +114,23 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
     setState(() {});
   }
 
-  void _loadMealLogs() {
+  void _loadMealLogs({String? q, MealType? mealType}) {
     final formattedDate =
         widget.selectedDate.toIso8601String().split('T').first;
     _viewModel.onEvent(LoadMealLogs(
       companyId: widget.companyId,
       date: formattedDate,
+      q: q,
+      mealType: mealType?.toString().split('.').last.toUpperCase(),
     ));
   }
 
   Future<void> _onRefresh() async {
-    _loadMealLogs();
+    // Refresh with current filters
+    _loadMealLogs(
+      q: searchController.text,
+      mealType: selectedMealType,
+    );
   }
 
   List<MealLogItem> get allRecords {
@@ -128,39 +141,48 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
     return [];
   }
 
-  List<MealLogItem> get filteredRecords {
-    var records = allRecords;
+  // Client-side filtering logic is removed. recordsToDisplay will be allRecords
+  List<MealLogItem> get recordsToDisplay => allRecords;
 
-    if (selectedMealType != MealType.all) {
-      records = records
-          .where((record) => record.mealTypeEnum == selectedMealType)
-          .toList();
+
+  int get breakfastCount {
+    final state = _viewModel.uiState;
+    if (state is Success) {
+      return state.mealLog.items.where((r) => r.mealType == 'BREAKFAST').length;
     }
-
-    if (searchController.text.isNotEmpty) {
-      records = records
-          .where((record) => record.employeeName.contains(searchController.text))
-          .toList();
+    return 0;
+  }
+  int get lunchCount {
+    final state = _viewModel.uiState;
+    if (state is Success) {
+      return state.mealLog.items.where((r) => r.mealType == 'LUNCH').length;
     }
-
-    return records;
+    return 0;
+  }
+  int get dinnerCount {
+    final state = _viewModel.uiState;
+    if (state is Success) {
+      return state.mealLog.items.where((r) => r.mealType == 'DINNER').length;
+    }
+    return 0;
   }
 
-  int get breakfastCount =>
-      allRecords.where((r) => r.mealType == 'BREAKFAST').length;
-  int get lunchCount =>
-      allRecords.where((r) => r.mealType == 'LUNCH').length;
-  int get dinnerCount =>
-      allRecords.where((r) => r.mealType == 'DINNER').length;
-
   void _loadMore() {
+    final state = _viewModel.uiState;
+    if (state is! Success) return;
+
     final nextPage = (allRecords.length / 20).ceil() + 1;
-    final formattedDate = widget.selectedDate.toIso8601String().split('T').first;
-    _viewModel.onEvent(LoadMoreMealLogs(
-      companyId: widget.companyId,
-      date: formattedDate,
-      page: nextPage,
-    ));
+
+    if (allRecords.length < state.mealLog.totalCount) {
+      final formattedDate = widget.selectedDate.toIso8601String().split('T').first;
+      _viewModel.onEvent(LoadMoreMealLogs(
+        companyId: widget.companyId,
+        date: formattedDate,
+        page: nextPage,
+        q: searchController.text,
+        mealType: selectedMealType.toString().split('.').last.toUpperCase(),
+      ));
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -211,7 +233,7 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
           onPressed: () => context.pop(),
         ),
       title: Text(
-        '식사 상세 내역',
+        '식수 상세 내역',
         style: TextStyle(
           color: Colors.white,
           fontSize: 20.sp,
@@ -353,9 +375,11 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
     final isSelected = selectedMealType == type;
     return GestureDetector(
       onTap: () {
-        setState(() {
-          selectedMealType = type;
-        });
+        selectedMealType = type; // Update local state for UI
+        _loadMealLogs(
+          q: searchController.text,
+          mealType: selectedMealType,
+        );
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
@@ -398,7 +422,13 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
         child: TextField(
           controller: searchController,
           onChanged: (value) {
-            setState(() {});
+            _searchDebounce?.cancel(); // Cancel previous debounce
+            _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+              _loadMealLogs(
+                q: value,
+                mealType: selectedMealType,
+              );
+            });
           },
           style: TextStyle(
             color: Colors.white,
@@ -429,50 +459,49 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
   Widget _buildEmployeeList() {
     final uiState = _viewModel.uiState;
     
+    // Check if there are no records and not currently loading, and if it's a Success state
     if (uiState is Success) {
-      if (allRecords.isNotEmpty && filteredRecords.isEmpty) {
-        return const Center(
+      if (recordsToDisplay.isEmpty) {
+        String message = (searchController.text.isNotEmpty || selectedMealType != MealType.all)
+            ? '검색 결과가 없습니다.'
+            : '식사 내역이 없습니다.';
+        return Center(
           child: Text(
-            '검색 결과가 없습니다.',
-            style: TextStyle(color: Colors.white70, fontSize: 16),
-          ),
-        );
-      }
-      
-      if (allRecords.isEmpty) {
-        return const Center(
-          child: Text(
-            '식사 내역이 없습니다.',
+            message,
             style: TextStyle(color: Colors.white70, fontSize: 16),
           ),
         );
       }
     }
 
+
     return ListView.builder(
       controller: scrollController,
       padding: EdgeInsets.symmetric(horizontal: 20.w),
-      itemCount: filteredRecords.length + 1,
+      itemCount: recordsToDisplay.length + 1 + ( _shouldShowLoadMoreButton() ? 1 : 0), // Header + Records + (LoadMoreButton if visible)
       itemBuilder: (context, index) {
         if (index == 0) {
           return _buildListHeader();
         }
 
-        if (index == filteredRecords.length) {
-          bool hasMore = false;
-          if (uiState is Success) {
-            hasMore = uiState.mealLog.items.length < uiState.mealLog.totalCount;
-          }
-          if (hasMore) {
+        // Load More button at the end
+        if (index == recordsToDisplay.length + 1 && _shouldShowLoadMoreButton()) { // Adjusted index calculation for load more button
             return _buildLoadMoreButton();
-          }
-          return SizedBox(height: 20.h);
         }
-
-        final record = filteredRecords[index];
+        
+        final record = recordsToDisplay[index - 1]; // -1 because of the header
         return _buildEmployeeRecordCard(record);
       },
     );
+  }
+  
+  bool _shouldShowLoadMoreButton() {
+    final state = _viewModel.uiState;
+    if (state is Success) {
+      // Show load more button if currently loaded items are less than total and not currently loading more
+      return state.mealLog.items.length < state.mealLog.totalCount; // simplified
+    }
+    return false;
   }
 
   Widget _buildListHeader() {
@@ -575,8 +604,10 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
   Widget _buildLoadMoreButton() {
     final state = _viewModel.uiState;
     bool isLoadingMore = false;
+    int totalCount = 0;
     if (state is Success) {
       isLoadingMore = state.isLoadingMore;
+      totalCount = state.mealLog.totalCount;
     }
 
     return Padding(
@@ -610,7 +641,7 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
               ),
               SizedBox(width: 8.w),
               Text(
-                '상세 내역 더보기 (${allRecords.length}/${(state is Success) ? state.mealLog.totalCount : ''})',
+                '상세 내역 더보기 (${allRecords.length}/$totalCount)',
                 style: TextStyle(
                   color: const Color(0xFF3B82F6),
                   fontSize: 15.sp,

@@ -6,6 +6,8 @@ import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_m
 import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_meal_detail_ui_state.dart';
 import 'package:injectable/injectable.dart';
 
+import 'company_meal_detail_screen.dart'; // Import MealType enum
+
 @injectable
 class CompanyMealDetailViewModel extends ChangeNotifier {
   final AuthTokenManager _authTokenManager;
@@ -15,6 +17,9 @@ class CompanyMealDetailViewModel extends ChangeNotifier {
 
   CompanyMealDetailUiState get uiState => _uiState;
 
+  String? _currentSearchQuery;
+  MealType _currentMealType = MealType.all;
+
   CompanyMealDetailViewModel(
     this._authTokenManager,
     this._getMealLogsUseCase,
@@ -22,6 +27,11 @@ class CompanyMealDetailViewModel extends ChangeNotifier {
 
   void onEvent(CompanyMealDetailEvent event) {
     if (event is LoadMealLogs) {
+      _currentSearchQuery = event.q;
+      _currentMealType = event.mealType != null
+          ? MealType.values.firstWhere((e) => e.toString() == 'MealType.${event.mealType!.toLowerCase()}')
+          : MealType.all;
+
       _loadMealLogs(
         companyId: event.companyId,
         date: event.date,
@@ -45,7 +55,6 @@ class CompanyMealDetailViewModel extends ChangeNotifier {
     bool isLoadMore = false,
   }) async {
     if (isLoadMore) {
-      // Set isLoadingMore to true in the current Success state
       if (_uiState is Success) {
         _uiState = (_uiState as Success).copyWith(isLoadingMore: true);
         notifyListeners();
@@ -63,12 +72,19 @@ class CompanyMealDetailViewModel extends ChangeNotifier {
       return;
     }
 
+    // Convert MealType enum to string expected by UseCase
+    String mealTypeParam = _currentMealType == MealType.all
+        ? 'ALL'
+        : _currentMealType.toString().split('.').last.toUpperCase();
+
     final result = await _getMealLogsUseCase.execute(
       restaurantId: restaurantId,
       companyId: companyId.toString(),
       date: date,
       page: page,
       pageSize: 20,
+      q: _currentSearchQuery,
+      mealType: mealTypeParam,
     );
 
     result.when(
