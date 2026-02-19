@@ -241,7 +241,7 @@ class _DailyMealCountStatusScreenState
     if (companies.isEmpty) {
       return Center(
         child: Text(
-          '아직 식사를 한 업체가 없습니다.',
+          '아직 식사를 한 업체가 없습니다',
           style: TextStyle(
             color: Colors.white70,
             fontSize: 20.sp,
