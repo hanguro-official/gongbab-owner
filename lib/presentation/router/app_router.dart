@@ -23,13 +23,19 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.login,
           builder: (BuildContext context, GoRouterState state) {
-            return const LoginScreen();
+            return PopScope(
+              canPop: false, // Prevent system back for login screen
+              child: const LoginScreen(),
+            );
           },
         ),
         GoRoute(
           path: AppRoutes.dailyMealCountStatus,
           builder: (BuildContext context, GoRouterState state) {
-            return const DailyMealCountStatusScreen();
+            return PopScope(
+              canPop: false, // Prevent system back for main dashboard
+              child: const DailyMealCountStatusScreen(),
+            );
           },
         ),
         GoRoute(
@@ -45,19 +51,26 @@ class AppRouter {
               return const DailyMealCountStatusScreen();
             }
 
-            return CompanyMealDetailScreen(
-              companyId: companyId,
-              companyName: companyName,
-              selectedDate: selectedDate,
+            return PopScope(
+              canPop: false, // Prevent system back for detail screen
+              child: CompanyMealDetailScreen(
+                companyId: companyId,
+                companyName: companyName,
+                selectedDate: selectedDate,
+              ),
             );
           },
         ),
         GoRoute(
           path: AppRoutes.monthlySettlement,
           builder: (BuildContext context, GoRouterState state) {
-            return const MonthlySettlementScreen();
+            return PopScope(
+              canPop: false, // Prevent system back for settlement screen
+              child: const MonthlySettlementScreen(),
+            );
           },
         ),
+
       ],
       redirect: (BuildContext context, GoRouterState state) => redirectLogic(context, state),
     );
