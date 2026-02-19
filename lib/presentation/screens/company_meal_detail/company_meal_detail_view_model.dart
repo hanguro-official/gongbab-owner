@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gongbab_owner/data/auth/auth_token_manager.dart';
+import 'package:gongbab_owner/domain/entities/meal_log/meal_log.dart';
 import 'package:gongbab_owner/domain/usecases/get_meal_logs_usecase.dart';
 import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_meal_detail_event.dart';
 import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_meal_detail_ui_state.dart';
@@ -24,6 +25,15 @@ class CompanyMealDetailViewModel extends ChangeNotifier {
       _loadMealLogs(
         companyId: event.companyId,
         date: event.date,
+        page: 1,
+        isLoadMore: false,
+      );
+    } else if (event is LoadMoreMealLogs) {
+      _loadMealLogs(
+        companyId: event.companyId,
+        date: event.date,
+        page: event.page,
+        isLoadMore: true,
       );
     }
   }
@@ -31,9 +41,19 @@ class CompanyMealDetailViewModel extends ChangeNotifier {
   Future<void> _loadMealLogs({
     required int companyId,
     required String date,
+    required int page,
+    bool isLoadMore = false,
   }) async {
-    _uiState = Loading();
-    notifyListeners();
+    if (isLoadMore) {
+      // Set isLoadingMore to true in the current Success state
+      if (_uiState is Success) {
+        _uiState = (_uiState as Success).copyWith(isLoadingMore: true);
+        notifyListeners();
+      }
+    } else {
+      _uiState = Loading();
+      notifyListeners();
+    }
 
     final String? restaurantId = _authTokenManager.getRestaurantId()?.toString();
 
@@ -45,21 +65,43 @@ class CompanyMealDetailViewModel extends ChangeNotifier {
 
     final result = await _getMealLogsUseCase.execute(
       restaurantId: restaurantId,
-      companyId: companyId.toString(), // Convert int to String
+      companyId: companyId.toString(),
       date: date,
+      page: page,
+      pageSize: 20,
     );
 
     result.when(
-      success: (mealLog) {
-        _uiState = Success(mealLog);
+      success: (newMealLog) {
+        if (isLoadMore && _uiState is Success) {
+          final currentMealLog = (_uiState as Success).mealLog;
+          final allItems = [...currentMealLog.items, ...newMealLog.items];
+          final updatedMealLog = MealLog(
+            date: newMealLog.date,
+            company: newMealLog.company,
+            totalCount: newMealLog.totalCount,
+            items: allItems,
+          );
+          _uiState = Success(updatedMealLog, isLoadingMore: false);
+        } else {
+          _uiState = Success(newMealLog);
+        }
         notifyListeners();
       },
       failure: (success, error) {
-        _uiState = Error(error?['message'] ?? 'Unknown error');
+        if (isLoadMore && _uiState is Success) {
+          _uiState = (_uiState as Success).copyWith(isLoadingMore: false);
+        } else {
+          _uiState = Error(error?['message'] ?? 'Unknown error');
+        }
         notifyListeners();
       },
       error: (message) {
-        _uiState = Error(message);
+        if (isLoadMore && _uiState is Success) {
+          _uiState = (_uiState as Success).copyWith(isLoadingMore: false);
+        } else {
+          _uiState = Error(message);
+        }
         notifyListeners();
       },
     );

@@ -7,6 +7,62 @@ import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_m
 import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_meal_detail_ui_state.dart';
 import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_meal_detail_view_model.dart';
 
+enum MealType { all, breakfast, lunch, dinner }
+
+extension MealLogItemUIHelpers on MealLogItem {
+  MealType get mealTypeEnum {
+    switch (mealType) {
+      case 'BREAKFAST':
+        return MealType.breakfast;
+      case 'LUNCH':
+        return MealType.lunch;
+      case 'DINNER':
+        return MealType.dinner;
+      default:
+        return MealType.all;
+    }
+  }
+
+  IconData getMealTypeIcon() {
+    switch (mealType) {
+      case 'BREAKFAST':
+        return Icons.wb_sunny_outlined;
+      case 'LUNCH':
+        return Icons.wb_sunny;
+      case 'DINNER':
+        return Icons.nightlight_round;
+      default:
+        return Icons.restaurant;
+    }
+  }
+
+  Color getMealTypeColor() {
+    switch (mealType) {
+      case 'BREAKFAST':
+        return const Color(0xFFFF9800);
+      case 'LUNCH':
+        return const Color(0xFFFFC107);
+      case 'DINNER':
+        return const Color(0xFF7C3AED);
+      default:
+        return const Color(0xFF3B82F6);
+    }
+  }
+
+  String getMealTypeLabel() {
+    switch (mealType) {
+      case 'BREAKFAST':
+        return 'BREAKFAST LOGGED';
+      case 'LUNCH':
+        return 'LUNCH LOGGED';
+      case 'DINNER':
+        return 'DINNER LOGGED';
+      default:
+        return 'MEAL LOGGED';
+    }
+  }
+}
+
 class CompanyMealDetailScreen extends StatefulWidget {
   final int companyId;
   final String companyName;
@@ -27,6 +83,10 @@ class CompanyMealDetailScreen extends StatefulWidget {
 class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
   late CompanyMealDetailViewModel _viewModel;
 
+  MealType selectedMealType = MealType.all;
+  final TextEditingController searchController = TextEditingController();
+  final ScrollController scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +98,8 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
   @override
   void dispose() {
     _viewModel.removeListener(_onViewModelChange);
+    searchController.dispose();
+    scrollController.dispose();
     super.dispose();
   }
 
@@ -58,6 +120,49 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
     _loadMealLogs();
   }
 
+  List<MealLogItem> get allRecords {
+    final state = _viewModel.uiState;
+    if (state is Success) {
+      return state.mealLog.items;
+    }
+    return [];
+  }
+
+  List<MealLogItem> get filteredRecords {
+    var records = allRecords;
+
+    if (selectedMealType != MealType.all) {
+      records = records
+          .where((record) => record.mealTypeEnum == selectedMealType)
+          .toList();
+    }
+
+    if (searchController.text.isNotEmpty) {
+      records = records
+          .where((record) => record.employeeName.contains(searchController.text))
+          .toList();
+    }
+
+    return records;
+  }
+
+  int get breakfastCount =>
+      allRecords.where((r) => r.mealType == 'BREAKFAST').length;
+  int get lunchCount =>
+      allRecords.where((r) => r.mealType == 'LUNCH').length;
+  int get dinnerCount =>
+      allRecords.where((r) => r.mealType == 'DINNER').length;
+
+  void _loadMore() {
+    final nextPage = (allRecords.length / 20).ceil() + 1;
+    final formattedDate = widget.selectedDate.toIso8601String().split('T').first;
+    _viewModel.onEvent(LoadMoreMealLogs(
+      companyId: widget.companyId,
+      date: formattedDate,
+      page: nextPage,
+    ));
+  }
+
   String _formatDate(DateTime date) {
     const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
     final weekday = weekdays[date.weekday - 1];
@@ -66,126 +171,110 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = _viewModel.uiState;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F1419),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0F1419),
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          _buildFixedHeader(),
+          Expanded(
+            child: (state is Loading && allRecords.isEmpty)
+                ? const Center(child: CircularProgressIndicator())
+                : (state is Error)
+                    ? Center(
+                        child: Text(
+                          state.message,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _onRefresh,
+                        color: const Color(0xFF3B82F6),
+                        backgroundColor: const Color(0xFF1A2332),
+                        child: _buildEmployeeList(),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: const Color(0xFF0F1419),
+      scrolledUnderElevation: 0,
+      elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: Text(
-          widget.companyName,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
-          ),
+      title: Text(
+        '식사 상세 내역',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20.sp,
+          fontWeight: FontWeight.bold,
         ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: _buildBody(_viewModel.uiState),
-            ),
-          ],
-        ),
-      ),
+      )
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildFixedHeader() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left side (e.g., date picker) - can be added later if needed
-          SizedBox(width: 24.w), // Placeholder for left icon
-          Text(
-            _formatDate(widget.selectedDate),
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18.sp,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          // Right side (e.g., filter or export) - can be added later if needed
-          SizedBox(width: 24.w), // Placeholder for right icon
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBody(CompanyMealDetailUiState state) {
-    if (state is Loading) {
-      return const Center(child: CircularProgressIndicator());
-    } else if (state is Error) {
-      return Center(
-        child: Text(
-          state.message,
-          style: const TextStyle(color: Colors.white),
-        ),
-      );
-    } else if (state is Success) {
-      return RefreshIndicator(
-        onRefresh: _onRefresh,
-        color: const Color(0xFF3B82F6),
-        backgroundColor: const Color(0xFF1A2332),
-        child: Column(
-          children: [
-            _buildMealLogSummary(state.mealLog),
-            Expanded(child: _buildMealLogItems(state.mealLog.items)),
-          ],
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildMealLogSummary(MealLog mealLog) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
+      color: const Color(0xFF0F1419),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.restaurant_menu,
-                color: const Color(0xFF3B82F6),
-                size: 20.sp,
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 16.h),
+            child: Text(
+              _formatDate(widget.selectedDate),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.bold,
               ),
-              SizedBox(width: 4.w),
-              Text(
-                '식사 내역',
-                style: TextStyle(
-                  color: const Color(0xFF3B82F6),
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            '총 식사 인원: ${mealLog.totalCount}명',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18.sp,
-              fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 4.h),
-          Text(
-            '조식: ${mealLog.items.where((item) => item.mealType == 'BREAKFAST').length}명, 중식: ${mealLog.items.where((item) => item.mealType == 'LUNCH').length}명, 석식: ${mealLog.items.where((item) => item.mealType == 'DINNER').length}명',
-            style: TextStyle(
-              color: const Color(0xFF6B7280),
-              fontSize: 14.sp,
+          _buildMealSummaryCards(),
+          _buildMealTypeTabs(),
+          _buildSearchField(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealSummaryCards() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildMealSummaryCard(
+              label: '조식',
+              count: breakfastCount,
+              icon: Icons.wb_sunny_outlined,
+              iconColor: const Color(0xFFFF9800),
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: _buildMealSummaryCard(
+              label: '중식',
+              count: lunchCount,
+              icon: Icons.wb_sunny,
+              iconColor: const Color(0xFFFFC107),
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: _buildMealSummaryCard(
+              label: '석식',
+              count: dinnerCount,
+              icon: Icons.nightlight_round,
+              iconColor: const Color(0xFF7C3AED),
             ),
           ),
         ],
@@ -193,64 +282,344 @@ class _CompanyMealDetailScreenState extends State<CompanyMealDetailScreen> {
     );
   }
 
-  Widget _buildMealLogItems(List<MealLogItem> items) {
-    if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          '식사 내역이 없습니다.',
-          style: TextStyle(color: Colors.white70, fontSize: 16),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        return _buildMealLogItemCard(items[index]);
-      },
-    );
-  }
-
-  Widget _buildMealLogItemCard(MealLogItem item) {
+  Widget _buildMealSummaryCard({
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color iconColor,
+  }) {
     return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(8.w),
       decoration: BoxDecoration(
         color: const Color(0xFF1A2332),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(8.r),
         border: Border.all(
           color: const Color(0xFF2D3748),
           width: 1.5.w,
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: const Color(0xFF9CA3AF),
+                  fontSize: 14.sp,
+                ),
+              ),
+              Icon(
+                icon,
+                color: iconColor,
+                size: 20.sp,
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
           Text(
-            '${item.employeeName} (${item.mealLogId})',
+            count.toString(),
             style: TextStyle(
               color: Colors.white,
-              fontSize: 16.sp,
+              fontSize: 24.sp,
               fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            '식사 타입: ${item.mealType}',
-            style: TextStyle(
-              color: const Color(0xFF9CA3AF),
-              fontSize: 12.sp,
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            '식사 시간: ${item.time}',
-            style: TextStyle(
-              color: const Color(0xFF9CA3AF),
-              fontSize: 12.sp,
+              height: 1.0,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMealTypeTabs() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 0),
+      child: Row(
+        children: [
+          _buildTabButton('전체', MealType.all),
+          SizedBox(width: 12.w),
+          _buildTabButton('조식', MealType.breakfast),
+          SizedBox(width: 12.w),
+          _buildTabButton('중식', MealType.lunch),
+          SizedBox(width: 12.w),
+          _buildTabButton('석식', MealType.dinner),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String label, MealType type) {
+    final isSelected = selectedMealType == type;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedMealType = type;
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF3B82F6) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8.r),
+          border: isSelected
+              ? null
+              : Border(
+                  bottom: BorderSide(
+                    color: const Color(0xFF2D3748),
+                    width: 2.h,
+                  ),
+                ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : const Color(0xFF9CA3AF),
+            fontSize: 15.sp,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Padding(
+      padding: EdgeInsets.all(20.w),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2332),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(
+            color: const Color(0xFF2D3748),
+            width: 1.5.w,
+          ),
+        ),
+        child: TextField(
+          controller: searchController,
+          onChanged: (value) {
+            setState(() {});
+          },
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15.sp,
+          ),
+          decoration: InputDecoration(
+            hintText: '임직원 이름 검색...',
+            hintStyle: TextStyle(
+              color: const Color(0xFF6B7280),
+              fontSize: 15.sp,
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              color: const Color(0xFF6B7280),
+              size: 22.sp,
+            ),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16.w,
+              vertical: 14.h,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmployeeList() {
+    final uiState = _viewModel.uiState;
+    
+    if (uiState is Success) {
+      if (allRecords.isNotEmpty && filteredRecords.isEmpty) {
+        return const Center(
+          child: Text(
+            '검색 결과가 없습니다.',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+        );
+      }
+      
+      if (allRecords.isEmpty) {
+        return const Center(
+          child: Text(
+            '식사 내역이 없습니다.',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+        );
+      }
+    }
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      itemCount: filteredRecords.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildListHeader();
+        }
+
+        if (index == filteredRecords.length) {
+          bool hasMore = false;
+          if (uiState is Success) {
+            hasMore = uiState.mealLog.items.length < uiState.mealLog.totalCount;
+          }
+          if (hasMore) {
+            return _buildLoadMoreButton();
+          }
+          return SizedBox(height: 20.h);
+        }
+
+        final record = filteredRecords[index];
+        return _buildEmployeeRecordCard(record);
+      },
+    );
+  }
+
+  Widget _buildListHeader() {
+    final state = _viewModel.uiState;
+    int totalCount = 0;
+    if (state is Success) {
+      totalCount = state.mealLog.totalCount;
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 16.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '식사 인원 내역',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            '총 ${totalCount}건',
+            style: TextStyle(
+              color: const Color(0xFF3B82F6),
+              fontSize: 14.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmployeeRecordCard(MealLogItem record) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.all(12.w),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2332),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(
+          color: const Color(0xFF2D3748),
+          width: 1.5.w,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8.w),
+            decoration: BoxDecoration(
+              color: record.getMealTypeColor().withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Icon(
+              record.getMealTypeIcon(),
+              color: record.getMealTypeColor(),
+              size: 24.sp,
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.employeeName,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  record.getMealTypeLabel(),
+                  style: TextStyle(
+                    color: const Color(0xFF6B7280),
+                    fontSize: 12.sp,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            record.time,
+            style: TextStyle(
+              color: const Color(0xFF9CA3AF),
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreButton() {
+    final state = _viewModel.uiState;
+    bool isLoadingMore = false;
+    if (state is Success) {
+      isLoadingMore = state.isLoadingMore;
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 20.h),
+      child: GestureDetector(
+        onTap: isLoadingMore ? null : _loadMore,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 16.h),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2332),
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(
+              color: const Color(0xFF3B82F6),
+              width: 2.w,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: isLoadingMore 
+          ? SizedBox(
+            height: 20.h,
+            width: 20.h,
+            child: const CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3B82F6)),
+          )
+          : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.refresh,
+                color: const Color(0xFF3B82F6),
+                size: 20.sp,
+              ),
+              SizedBox(width: 8.w),
+              Text(
+                '상세 내역 더보기 (${allRecords.length}/${(state is Success) ? state.mealLog.totalCount : ''})',
+                style: TextStyle(
+                  color: const Color(0xFF3B82F6),
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
