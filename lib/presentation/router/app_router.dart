@@ -23,18 +23,18 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.login,
           builder: (BuildContext context, GoRouterState state) {
-            return PopScope(
+            return const PopScope(
               canPop: false, // Prevent system back for login screen
-              child: const LoginScreen(),
+              child: LoginScreen(),
             );
           },
         ),
         GoRoute(
           path: AppRoutes.dailyMealCountStatus,
           builder: (BuildContext context, GoRouterState state) {
-            return PopScope(
+            return const PopScope(
               canPop: false, // Prevent system back for main dashboard
-              child: const DailyMealCountStatusScreen(),
+              child: DailyMealCountStatusScreen(),
             );
           },
         ),
@@ -64,9 +64,9 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.monthlySettlement,
           builder: (BuildContext context, GoRouterState state) {
-            return PopScope(
+            return const PopScope(
               canPop: false, // Prevent system back for settlement screen
-              child: const MonthlySettlementScreen(),
+              child: MonthlySettlementScreen(),
             );
           },
         ),
