@@ -21,6 +21,7 @@ class _DailyMealCountStatusScreenState
     extends State<DailyMealCountStatusScreen> {
   late DailyMealCountStatusViewModel _viewModel;
   DateTime selectedDate = DateTime.now();
+  bool _isMenuVisible = false;
 
   @override
   void initState() {
@@ -97,12 +98,35 @@ class _DailyMealCountStatusScreenState
     return Scaffold(
       backgroundColor: const Color(0xFF0F1419),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _buildHeader(),
-            Expanded(
-              child: _buildBody(_viewModel.uiState),
+            Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: _buildBody(_viewModel.uiState),
+                ),
+              ],
             ),
+            if (_isMenuVisible) ...[
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isMenuVisible = false;
+                  });
+                },
+                child: Container(
+                  color: Colors.transparent,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              ),
+              Positioned(
+                top: 72.h,
+                right: 20.w,
+                child: _buildPopupMenu(),
+              ),
+            ],
           ],
         ),
       ),
@@ -167,7 +191,11 @@ class _DailyMealCountStatusScreenState
             ),
           ),
           InkWell(
-            onTap: _navigateToMonthlySettlement,
+            onTap: () {
+              setState(() {
+                _isMenuVisible = !_isMenuVisible;
+              });
+            },
             borderRadius: BorderRadius.circular(12.r),
             child: Container(
               padding: EdgeInsets.all(12.w),
@@ -176,7 +204,7 @@ class _DailyMealCountStatusScreenState
                 borderRadius: BorderRadius.circular(12.r),
               ),
               child: Icon(
-                Icons.description,
+                Icons.menu_outlined,
                 color: Colors.white,
                 size: 24.sp,
               ),
@@ -185,6 +213,77 @@ class _DailyMealCountStatusScreenState
         ],
       ),
     );
+  }
+
+  Widget _buildPopupMenu() {
+    return Container(
+        width: 180.w,
+        decoration: BoxDecoration(
+            color: const Color(0xFF2D3748),
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 15,
+                  offset: Offset(0, 8.h))
+            ]),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _buildMenuItem(
+              icon: Icons.monetization_on_outlined,
+              label: '월간 정산',
+              onTap: () {
+                setState(() {
+                  _isMenuVisible = false;
+                });
+                _navigateToMonthlySettlement();
+              },
+              showDivider: true),
+          _buildMenuItem(
+              icon: Icons.manage_search_outlined,
+              label: '정산 관리',
+              onTap: () {
+                setState(() {
+                  _isMenuVisible = false;
+                });
+              },
+              showDivider: false),
+        ]));
+  }
+
+  Widget _buildMenuItem(
+      {required IconData icon,
+        required String label,
+        required VoidCallback onTap,
+        required bool showDivider}) {
+    return Column(children: [
+      InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20.r),
+          child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.w),
+              child: Row(children: [
+                Container(
+                    width: 40.w,
+                    height: 40.h,
+                    decoration: BoxDecoration(
+                        color: const Color(0xFF2C3647),
+                        borderRadius: BorderRadius.circular(10.r)),
+                    child: Icon(icon, color: Colors.white, size: 36)),
+                SizedBox(width: 12.w),
+                Text(label,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2))
+              ]))),
+      if (showDivider)
+        Divider(
+            height: 1,
+            color: Colors.white.withOpacity(0.07),
+            indent: 16,
+            endIndent: 16),
+    ]);
   }
 
   Widget _buildDashboardHeader(String? lastUpdateTime) {
