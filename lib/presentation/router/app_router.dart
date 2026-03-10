@@ -4,6 +4,9 @@ import 'package:gongbab_owner/presentation/screens/company_meal_detail/company_m
 import 'package:gongbab_owner/presentation/screens/daily_meal_count_status/daily_meal_count_status_screen.dart';
 import 'package:gongbab_owner/presentation/screens/login/login_screen.dart';
 import 'package:gongbab_owner/presentation/screens/monthly_settlement/monthly_settlement_screen.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_detail/settlement_detail_screen.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_management/settlement_management_screen.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_register/settlement_register_screen.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../data/auth/auth_token_manager.dart';
@@ -40,11 +43,15 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.companyMealDetail,
           builder: (BuildContext context, GoRouterState state) {
-            final companyId = int.tryParse(state.pathParameters['companyId'] ?? '');
+            final companyId =
+                int.tryParse(state.pathParameters['companyId'] ?? '');
             final companyName = state.pathParameters['companyName'];
-            final selectedDate = DateTime.tryParse(state.pathParameters['selectedDate'] ?? '');
+            final selectedDate =
+                DateTime.tryParse(state.pathParameters['selectedDate'] ?? '');
 
-            if (companyId == null || companyName == null || selectedDate == null) {
+            if (companyId == null ||
+                companyName == null ||
+                selectedDate == null) {
               // This is a failsafe. In a real app, you might want a dedicated error screen.
               return const Scaffold(
                 body: Center(
@@ -72,9 +79,48 @@ class AppRouter {
             );
           },
         ),
+        GoRoute(
+          path: AppRoutes.settlementManagement,
+          builder: (BuildContext context, GoRouterState state) {
+            return const PopScope(
+              canPop: false, // Prevent system back for settlement screen
+              child: SettlementManagementScreen(),
+            );
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.settlementDetail,
+          builder: (BuildContext context, GoRouterState state) {
+            final year = int.tryParse(state.pathParameters['year'] ?? '');
+            final month = int.tryParse(state.pathParameters['month'] ?? '');
 
+            if (year == null || month == null) {
+              // This is a failsafe. In a real app, you might want a dedicated error screen.
+              return const Scaffold(
+                body: Center(
+                  child: Text('Error: Missing route parameters.'),
+                ),
+              );
+            }
+
+            return PopScope(
+              canPop: false, // Prevent system back for settlement screen
+              child: SettlementDetailScreen(year: year, month: month),
+            );
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.settlementRegister,
+          builder: (BuildContext context, GoRouterState state) {
+            return const PopScope(
+              canPop: false, // Prevent system back for settlement screen
+              child: SettlementRegisterScreen(),
+            );
+          },
+        ),
       ],
-      redirect: (BuildContext context, GoRouterState state) => redirectLogic(context, state),
+      redirect: (BuildContext context, GoRouterState state) =>
+          redirectLogic(context, state),
     );
   }
 

@@ -6,5 +6,8 @@ abstract class AppRoutes {
   static const String companyMealDetail =
       '/company_meal_detail/:companyId/:companyName/:selectedDate';
   static const String monthlySettlement = '/monthly_settlement';
+  static const String settlementManagement = '/settlement_management';
+  static const String settlementRegister = '/settlement_register';
+  static const String settlementDetail = '/settlement_detail/:year/:month';
   // Add other routes here
 }

@@ -69,6 +69,10 @@ class _DailyMealCountStatusScreenState
     context.push(AppRoutes.monthlySettlement);
   }
 
+  void _navigateToSettlementManagement() {
+    context.push(AppRoutes.settlementManagement);
+  }
+
   void _navigateToCompanyDetail(DailyDashboardCompany company) {
     final dateString = selectedDate.toIso8601String().split('T').first;
     context.push(
@@ -245,6 +249,7 @@ class _DailyMealCountStatusScreenState
                 setState(() {
                   _isMenuVisible = false;
                 });
+                _navigateToSettlementManagement();
               },
               showDivider: false),
         ]));
@@ -252,31 +257,35 @@ class _DailyMealCountStatusScreenState
 
   Widget _buildMenuItem(
       {required IconData icon,
-        required String label,
-        required VoidCallback onTap,
-        required bool showDivider}) {
+      required String label,
+      required VoidCallback onTap,
+      required bool showDivider}) {
     return Column(children: [
       InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20.r),
-          child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.w),
-              child: Row(children: [
-                Container(
-                    width: 40.w,
-                    height: 40.h,
-                    decoration: BoxDecoration(
-                        color: const Color(0xFF2C3647),
-                        borderRadius: BorderRadius.circular(10.r)),
-                    child: Icon(icon, color: Colors.white, size: 36)),
-                SizedBox(width: 12.w),
-                Text(label,
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2))
-              ]))),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20.r),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.w),
+          child: Row(
+            children: [
+              Container(
+                  width: 40.w,
+                  height: 40.h,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF2C3647),
+                      borderRadius: BorderRadius.circular(10.r)),
+                  child: Icon(icon, color: Colors.white, size: 36)),
+              SizedBox(width: 12.w),
+              Text(label,
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2))
+            ],
+          ),
+        ),
+      ),
       if (showDivider)
         Divider(
             height: 1,
