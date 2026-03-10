@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:gongbab_owner/data/models/daily_dashboard_model.dart';
 import 'package:gongbab_owner/data/models/meal_log_model.dart';
 import 'package:gongbab_owner/data/models/monthly_settlement_model.dart';
+import 'package:gongbab_owner/data/models/settlement_model.dart';
+import 'package:gongbab_owner/data/models/settlement_request_model.dart';
 import 'package:gongbab_owner/data/network/rest_api_client.dart';
 import 'package:injectable/injectable.dart';
 
@@ -77,6 +79,46 @@ class ApiService {
   }
 
   // ------------settlements---------------------
+  Future<Result<SettlementListResponseModel>> getSettlements() async {
+    return _appApiClient.request(
+      method: RestMethod.get,
+      path: '/api/v1/settlements',
+      fromJson: SettlementListResponseModel.fromJson,
+    );
+  }
+
+  Future<Result<SettlementModel>> createSettlement({
+    required SettlementCreateRequestModel request,
+  }) async {
+    return _appApiClient.request(
+      method: RestMethod.post,
+      path: '/api/v1/settlements',
+      data: request.toJson(),
+      fromJson: SettlementModel.fromJson,
+    );
+  }
+
+  Future<Result<SettlementModel>> getSettlementDetail({
+    required int year,
+    required int month,
+  }) async {
+    return _appApiClient.request(
+      method: RestMethod.get,
+      path: '/api/v1/settlements/$year/$month',
+      fromJson: SettlementModel.fromJson,
+    );
+  }
+
+  Future<Result<SettlementModel>> confirmSettlement({
+    required int id,
+  }) async {
+    return _appApiClient.request(
+      method: RestMethod.patch,
+      path: '/api/v1/settlements/$id/confirm',
+      fromJson: SettlementModel.fromJson,
+    );
+  }
+
   Future<Result<MonthlySettlementModel>> getMonthlySettlement({
     required String restaurantId,
     required String month,
