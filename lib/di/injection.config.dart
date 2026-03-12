@@ -43,6 +43,12 @@ import '../presentation/screens/daily_meal_count_status/daily_meal_count_status_
 import '../presentation/screens/login/login_view_model.dart' as _i568;
 import '../presentation/screens/monthly_settlement/monthly_settlement_view_model.dart'
     as _i234;
+import '../presentation/screens/settlement_detail/settlement_detail_view_model.dart'
+    as _i38;
+import '../presentation/screens/settlement_management/settlement_management_view_model.dart'
+    as _i913;
+import '../presentation/screens/settlement_register/settlement_register_view_model.dart'
+    as _i125;
 import 'injection.dart' as _i464;
 
 extension GetItInjectableX on _i174.GetIt {
@@ -103,6 +109,11 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i800.AuthRepository>(),
           gh<_i702.AuthTokenManager>(),
         ));
+    gh.factory<_i125.SettlementRegisterViewModel>(
+        () => _i125.SettlementRegisterViewModel(
+              gh<_i38.GetSettlementDetailUseCase>(),
+              gh<_i527.CreateSettlementUseCase>(),
+            ));
     gh.factory<_i234.MonthlySettlementViewModel>(
         () => _i234.MonthlySettlementViewModel(
               gh<_i702.AuthTokenManager>(),
@@ -120,6 +131,13 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i395.DailyMealCountStatusViewModel(
               gh<_i702.AuthTokenManager>(),
               gh<_i413.GetDailyDashboardUseCase>(),
+            ));
+    gh.factory<_i913.SettlementManagementViewModel>(() =>
+        _i913.SettlementManagementViewModel(gh<_i694.GetSettlementsUseCase>()));
+    gh.factory<_i38.SettlementDetailViewModel>(
+        () => _i38.SettlementDetailViewModel(
+              gh<_i38.GetSettlementDetailUseCase>(),
+              gh<_i1003.ConfirmSettlementUseCase>(),
             ));
     gh.factory<_i23.CompanyMealDetailViewModel>(
         () => _i23.CompanyMealDetailViewModel(
