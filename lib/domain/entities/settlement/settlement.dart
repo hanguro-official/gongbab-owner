@@ -1,12 +1,12 @@
 class SettlementItem {
-  final int companyId;
+  final int? companyId;
   final String companyName;
   final int unitPrice;
   final int mealCount;
   final int supplyAmount;
 
   SettlementItem({
-    required this.companyId,
+    this.companyId,
     required this.companyName,
     required this.unitPrice,
     required this.mealCount,

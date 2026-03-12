@@ -5,14 +5,14 @@ part 'settlement_model.g.dart';
 
 @JsonSerializable()
 class SettlementItemModel {
-  final int companyId;
+  final int? companyId;
   final String companyName;
   final int unitPrice;
   final int mealCount;
   final int supplyAmount;
 
   SettlementItemModel({
-    required this.companyId,
+    this.companyId,
     required this.companyName,
     required this.unitPrice,
     required this.mealCount,

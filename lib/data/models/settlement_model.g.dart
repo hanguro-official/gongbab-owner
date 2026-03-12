@@ -8,7 +8,7 @@ part of 'settlement_model.dart';
 
 SettlementItemModel _$SettlementItemModelFromJson(Map<String, dynamic> json) =>
     SettlementItemModel(
-      companyId: (json['companyId'] as num).toInt(),
+      companyId: (json['companyId'] as num?)?.toInt(),
       companyName: json['companyName'] as String,
       unitPrice: (json['unitPrice'] as num).toInt(),
       mealCount: (json['mealCount'] as num).toInt(),
