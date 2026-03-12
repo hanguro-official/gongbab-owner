@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gongbab_owner/domain/entities/settlement/settlement.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_register/settlement_register_event.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_register/settlement_register_ui_state.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_register/settlement_register_view_model.dart';
+import 'package:gongbab_owner/presentation/widgets/custom_alert_dialog.dart';
 import 'package:intl/intl.dart';
 
 class SettlementRegisterScreen extends StatefulWidget {
@@ -13,16 +19,27 @@ class SettlementRegisterScreen extends StatefulWidget {
 }
 
 class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
-  DateTime selectedMonth = DateTime.now();
+  late SettlementRegisterViewModel _viewModel;
+  DateTime selectedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool applyUniformPrice = false;
   final TextEditingController uniformPriceController = TextEditingController();
+  String? _currentStatus;
 
   List<SettlementRow> rows = [
     SettlementRow(), // Initial empty row
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _viewModel = GetIt.instance<SettlementRegisterViewModel>();
+    _viewModel.addListener(_onViewModelChange);
+    _loadSettlement();
+  }
+
+  @override
   void dispose() {
+    _viewModel.removeListener(_onViewModelChange);
     uniformPriceController.dispose();
     for (var row in rows) {
       row.dispose();
@@ -30,13 +47,61 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
     super.dispose();
   }
 
+  void _onViewModelChange() {
+    final state = _viewModel.uiState;
+    if (state is SettlementRegisterSuccess) {
+      setState(() {
+        _currentStatus = state.settlement?.status;
+      });
+      _populateFromSettlement(state.settlement);
+    } else if (state is SettlementSaveSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('정산 내역이 저장되었습니다.')),
+      );
+      context.pop();
+    } else if (state is SettlementRegisterError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(state.message)),
+      );
+    }
+  }
+
+  bool get _isConfirmed => _currentStatus == 'CONFIRMED';
+
+  void _loadSettlement() {
+    _viewModel.onEvent(LoadSettlementForMonth(
+      year: selectedMonth.year,
+      month: selectedMonth.month,
+    ));
+  }
+
+  void _populateFromSettlement(Settlement? settlement) {
+    setState(() {
+      rows.clear();
+      if (settlement != null && settlement.items != null && settlement.items!.isNotEmpty) {
+        for (var item in settlement.items!) {
+          final row = SettlementRow();
+          row.companyController.text = item.companyName;
+          row.unitPriceController.text = NumberFormat('#,###').format(item.unitPrice);
+          row.quantityController.text = item.mealCount.toString();
+          row.calculateTotal();
+          rows.add(row);
+        }
+      } else {
+        rows.add(SettlementRow());
+      }
+    });
+  }
+
   void _addRow() {
+    if (_isConfirmed) return;
     setState(() {
       rows.add(SettlementRow());
     });
   }
 
   void _removeRow(int index) {
+    if (_isConfirmed) return;
     if (rows.length > 1) {
       setState(() {
         rows[index].dispose();
@@ -46,6 +111,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
   }
 
   void _onUniformPriceChanged() {
+    if (_isConfirmed) return;
     setState(() {
       applyUniformPrice = !applyUniformPrice;
       if (applyUniformPrice && uniformPriceController.text.isNotEmpty) {
@@ -61,6 +127,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
   }
 
   void _onUniformPriceValueChanged(String value) {
+    if (_isConfirmed) return;
     if (applyUniformPrice) {
       final priceString = value.replaceAll(',', '');
       final price = int.tryParse(priceString) ?? 0;
@@ -77,8 +144,8 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
     return rows.fold(0, (sum, row) => sum + row.totalAmount);
   }
 
-  void _saveSettlement() {
-    // Validate
+  void _onSaveButtonPressed() {
+    if (_isConfirmed) return;
     bool hasData = false;
     for (var row in rows) {
       if (row.companyController.text.isNotEmpty ||
@@ -91,7 +158,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
 
     if (!hasData) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('최소 하나의 정산 내역을 입력해주세요.'),
           backgroundColor: Colors.red,
         ),
@@ -99,17 +166,34 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
       return;
     }
 
-    // TODO: Save settlement data
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('정산이 저장되었습니다.'),
-        backgroundColor: const Color(0xFF3B82F6),
+    showDialog(
+      context: context,
+      builder: (context) => CustomAlertDialog(
+        title: '정산 내역을 저장하시겠어요?',
+        content: '정산 확정하기 전까지 수정할 수 있어요',
+        leftButtonText: '취소',
+        onLeftButtonPressed: () {},
+        rightButtonText: '저장하기',
+        onRightButtonPressed: _saveSettlement,
       ),
     );
   }
 
-  void _selectMonth() {
-    // TODO: Show month picker
+  void _saveSettlement() {
+    final List<Map<String, dynamic>> items = rows.where((row) => row.companyController.text.isNotEmpty).map((row) {
+      final priceString = row.unitPriceController.text.replaceAll(',', '');
+      return {
+        'companyName': row.companyController.text,
+        'unitPrice': int.tryParse(priceString) ?? 0,
+        'mealCount': int.tryParse(row.quantityController.text) ?? 0,
+      };
+    }).toList();
+
+    _viewModel.onEvent(SaveSettlement(
+      year: selectedMonth.year,
+      month: selectedMonth.month,
+      items: items,
+    ));
   }
 
   String _formatMonth(DateTime date) {
@@ -118,14 +202,11 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
 
   List<DateTime> _getMonths() {
     final now = DateTime.now();
-    return List.generate(5, (i) => DateTime(now.year, now.month - 3 + i, 1));
+    return List.generate(3, (i) => DateTime(now.year, now.month - 1 + i, 1));
   }
 
   String _formatCurrency(int amount) {
-    return amount.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (match) => '${match[1]},',
-    );
+    return NumberFormat('#,###').format(amount);
   }
 
   @override
@@ -133,34 +214,38 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F1419),
       appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Month selector section
-                  _buildMonthSelector(),
+      body: ListenableBuilder(
+        listenable: _viewModel,
+        builder: (context, _) {
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildMonthSelector(),
+                      _buildUniformPriceSection(),
 
-                  // Uniform price checkbox
-                  _buildUniformPriceSection(),
+                      if (_viewModel.uiState is SettlementRegisterLoading)
+                        SizedBox(
+                          height: 200.h,
+                          child: const Center(child: CircularProgressIndicator(color: Color(0xFF3B82F6))),
+                        )
+                      else ...[
+                        _buildTableRows(),
+                        _buildAddRowButton(),
+                      ],
 
-                  // Table rows
-                  _buildTableRows(),
-
-                  // Add row button
-                  _buildAddRowButton(),
-
-                  SizedBox(height: 120.h), // Space for bottom section
-                ],
+                      SizedBox(height: 120.h),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-
-          // Total and save button
-          _buildBottomSection(),
-        ],
+              _buildBottomSection(),
+            ],
+          );
+        },
       ),
     );
   }
@@ -205,16 +290,17 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
             ),
           ),
           SizedBox(height: 16.h),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: Row(
               children: months.map((month) {
                 final isSelected = selectedMonth.year == month.year &&
                     selectedMonth.month == month.month;
-                return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4.w),
-                  child: _buildMonthButton(month, isSelected),
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    child: _buildMonthButton(month, isSelected),
+                  ),
                 );
               }).toList(),
             ),
@@ -227,12 +313,15 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
   Widget _buildMonthButton(DateTime month, bool isSelected) {
     return GestureDetector(
       onTap: () {
-        setState(() {
-          selectedMonth = month;
-        });
+        if (selectedMonth.year != month.year || selectedMonth.month != month.month) {
+          setState(() {
+            selectedMonth = month;
+          });
+          _loadSettlement();
+        }
       },
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(vertical: 12.h),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF1A2332),
           borderRadius: BorderRadius.circular(8.r),
@@ -243,9 +332,10 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
         ),
         child: Text(
           _formatMonth(month),
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 14.sp,
+            fontSize: 12.sp,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -255,7 +345,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
 
   Widget _buildUniformPriceSection() {
     return Padding(
-      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 16.h),
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
       child: Container(
         padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
@@ -271,7 +361,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
             Flexible(
               flex: 3,
               child: GestureDetector(
-                onTap: _onUniformPriceChanged,
+                onTap: _isConfirmed ? null : _onUniformPriceChanged,
                 child: Row(
                   children: [
                     Container(
@@ -302,7 +392,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                       child: Text(
                         '단가 동일 적용',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: _isConfirmed ? const Color(0xFF6B7280) : Colors.white,
                           fontSize: 14.sp,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -317,7 +407,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
               flex: 2,
               child: TextField(
                 controller: uniformPriceController,
-                enabled: applyUniformPrice,
+                enabled: applyUniformPrice && !_isConfirmed,
                 keyboardType: TextInputType.number,
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
@@ -325,7 +415,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                 ],
                 onChanged: _onUniformPriceValueChanged,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _isConfirmed ? const Color(0xFF6B7280) : Colors.white,
                   fontSize: 14.sp,
                 ),
                 decoration: InputDecoration(
@@ -401,14 +491,14 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Company name and delete button
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: row.companyController,
+                    enabled: !_isConfirmed,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: _isConfirmed ? const Color(0xFF6B7280) : Colors.white,
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
                     ),
@@ -423,7 +513,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                     ),
                   ),
                 ),
-                if (rows.length > 1)
+                if (rows.length > 1 && !_isConfirmed)
                   IconButton(
                     icon: Icon(
                       Icons.close,
@@ -435,11 +525,9 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
               ],
             ),
             SizedBox(height: 8.h),
-
-            // Unit price
             TextField(
               controller: row.unitPriceController,
-              enabled: !applyUniformPrice,
+              enabled: !applyUniformPrice && !_isConfirmed,
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -451,7 +539,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                 });
               },
               style: TextStyle(
-                color: const Color(0xFF3B82F6),
+                color: _isConfirmed ? const Color(0xFF6B7280) : const Color(0xFF3B82F6),
                 fontSize: 14.sp,
               ),
               decoration: InputDecoration(
@@ -464,26 +552,22 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                 contentPadding: EdgeInsets.zero,
                 suffixText: '원',
                 suffixStyle: TextStyle(
-                  color: const Color(0xFF3B82F6),
+                  color: _isConfirmed ? const Color(0xFF6B7280) : const Color(0xFF3B82F6),
                   fontSize: 14.sp,
                 ),
               ),
             ),
-
             SizedBox(height: 16.h),
             Container(height: 1.h, color: const Color(0xFF2D3748)),
             SizedBox(height: 16.h),
-
-            // Quantity and total
             Row(
               children: [
-                // Quantity controls
                 Flexible(
                   flex: 5,
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () {
+                        onTap: _isConfirmed ? null : () {
                           setState(() {
                             row.decrementQuantity();
                           });
@@ -496,7 +580,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                           ),
                           child: Icon(
                             Icons.remove,
-                            color: Colors.white,
+                            color: _isConfirmed ? const Color(0xFF6B7280) : Colors.white,
                             size: 16.sp,
                           ),
                         ),
@@ -505,6 +589,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                       Expanded(
                         child: TextField(
                           controller: row.quantityController,
+                          enabled: !_isConfirmed,
                           textAlign: TextAlign.center,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
@@ -516,7 +601,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                             });
                           },
                           style: TextStyle(
-                            color: Colors.white,
+                            color: _isConfirmed ? const Color(0xFF6B7280) : Colors.white,
                             fontSize: 18.sp,
                             fontWeight: FontWeight.bold,
                           ),
@@ -528,7 +613,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                       ),
                       SizedBox(width: 8.w),
                       GestureDetector(
-                        onTap: () {
+                        onTap: _isConfirmed ? null : () {
                           setState(() {
                             row.incrementQuantity();
                           });
@@ -541,7 +626,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                           ),
                           child: Icon(
                             Icons.add,
-                            color: Colors.white,
+                            color: _isConfirmed ? const Color(0xFF6B7280) : Colors.white,
                             size: 16.sp,
                           ),
                         ),
@@ -550,15 +635,13 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                   ),
                 ),
                 SizedBox(width: 12.w),
-
-                // Total amount
                 Flexible(
                   flex: 4,
                   child: Text(
                     '${_formatCurrency(row.totalAmount)}원',
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: _isConfirmed ? const Color(0xFF6B7280) : Colors.white,
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
                     ),
@@ -620,7 +703,6 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Total
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -636,7 +718,7 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
                 child: Text(
                   '${_formatCurrency(totalAmount)}원',
                   style: TextStyle(
-                    color: const Color(0xFF3B82F6),
+                    color: _isConfirmed ? const Color(0xFF6B7280) : const Color(0xFF3B82F6),
                     fontSize: 28.sp,
                     fontWeight: FontWeight.bold,
                   ),
@@ -647,22 +729,20 @@ class _SettlementRegisterScreenState extends State<SettlementRegisterScreen> {
             ],
           ),
           SizedBox(height: 16.h),
-
-          // Save button
           GestureDetector(
-            onTap: _saveSettlement,
+            onTap: _isConfirmed ? null : _onSaveButtonPressed,
             child: Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(vertical: 18.h),
               decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6),
+                color: _isConfirmed ? const Color(0xFF2D3748) : const Color(0xFF3B82F6),
                 borderRadius: BorderRadius.circular(12.r),
               ),
               child: Text(
-                '저장하기',
+                _isConfirmed ? '이미 확정된 정산입니다' : '저장하기',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _isConfirmed ? const Color(0xFF9CA3AF) : Colors.white,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
                 ),
