@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gongbab_owner/domain/entities/settlement/settlement.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_detail/settlement_detail_event.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_detail/settlement_detail_ui_state.dart';
+import 'package:gongbab_owner/presentation/screens/settlement_detail/settlement_detail_view_model.dart';
+import 'package:gongbab_owner/presentation/widgets/custom_alert_dialog.dart';
 
 class SettlementDetailScreen extends StatefulWidget {
   final int year;
@@ -17,44 +24,84 @@ class SettlementDetailScreen extends StatefulWidget {
 }
 
 class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
-  // Sample data
-  final List<CompanySettlementDetail> companies = [
-    CompanySettlementDetail(
-      name: '동진레이저',
-      mealCount: 183,
-      totalAmount: 1281000,
-    ),
-    CompanySettlementDetail(
-      name: '성진',
-      mealCount: 40,
-      totalAmount: 280000,
-    ),
-    CompanySettlementDetail(
-      name: '현대목공',
-      mealCount: 455,
-      totalAmount: 3731000,
-    ),
-  ];
+  late SettlementDetailViewModel _viewModel;
 
-  int get totalAmount =>
-      companies.fold(0, (sum, company) => sum + company.totalAmount);
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = GetIt.instance<SettlementDetailViewModel>();
+    _viewModel.addListener(_onViewModelChange);
+    _loadDetail();
+  }
 
-  void _copyText() {
-    // TODO: Implement copy to clipboard
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('텍스트 복사 기능 구현 예정'),
-        backgroundColor: const Color(0xFF3B82F6),
+  @override
+  void dispose() {
+    _viewModel.removeListener(_onViewModelChange);
+    super.dispose();
+  }
+
+  void _onViewModelChange() {
+    if (_viewModel.errorMessage != null) {
+      _showErrorDialog(_viewModel.errorMessage!);
+      _viewModel.clearError();
+    }
+  }
+
+  void _loadDetail() {
+    _viewModel.onEvent(LoadSettlementDetail(
+      year: widget.year,
+      month: widget.month,
+    ));
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => CustomAlertDialog(
+        title: '정산 확정 실패',
+        content: message,
+        rightButtonText: '확인',
+        onRightButtonPressed: () {},
       ),
     );
   }
 
-  void _confirmSettlement() {
-    // TODO: Implement settlement confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('정산 확정 기능 구현 예정'),
-        backgroundColor: const Color(0xFF3B82F6),
+  void _copyText(Settlement settlement) {
+    final StringBuffer buffer = StringBuffer();
+    buffer.writeln('[${settlement.year}년 ${settlement.month}월 정산]');
+
+    if (settlement.items != null) {
+      for (final item in settlement.items!) {
+        buffer.writeln('${item.companyName} ${_formatCurrency(item.supplyAmount)}원');
+      }
+    }
+
+    buffer.write('총 합계 ${_formatCurrency(settlement.totalSupplyAmount)}원');
+
+    Clipboard.setData(ClipboardData(text: buffer.toString())).then((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('정산 내역이 복사되었습니다.'),
+            backgroundColor: Color(0xFF3B82F6),
+          ),
+        );
+      }
+    });
+  }
+
+  void _showConfirmDialog(int id) {
+    showDialog(
+      context: context,
+      builder: (context) => CustomAlertDialog(
+        title: '정산을 확정하시겠어요?',
+        content: '확정한 뒤에는 수정할 수 없어요',
+        leftButtonText: '취소',
+        onLeftButtonPressed: () {},
+        rightButtonText: '확정',
+        onRightButtonPressed: () {
+          _viewModel.onEvent(ConfirmSettlement(id));
+        },
       ),
     );
   }
@@ -71,7 +118,46 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F1419),
       appBar: _buildAppBar(),
-      body: Column(
+      body: ListenableBuilder(
+        listenable: _viewModel,
+        builder: (context, _) {
+          return _buildBody(_viewModel.uiState);
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody(SettlementDetailUiState state) {
+    if (state is SettlementDetailLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF3B82F6)),
+      );
+    }
+
+    if (state is SettlementDetailError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              state.message,
+              style: const TextStyle(color: Colors.white70),
+            ),
+            SizedBox(height: 16.h),
+            ElevatedButton(
+              onPressed: _loadDetail,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state is SettlementDetailSuccess) {
+      final settlement = state.settlement;
+      final items = settlement.items ?? [];
+
+      return Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -79,15 +165,15 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header
-                  _buildHeader(),
+                  _buildHeader(items.length),
 
                   // Company list
-                  _buildCompanyList(),
+                  _buildCompanyList(items),
 
                   SizedBox(height: 24.h),
 
                   // Total amount section
-                  _buildTotalSection(),
+                  _buildTotalSection(settlement.totalSupplyAmount),
 
                   SizedBox(height: 120.h), // Space for bottom buttons
                 ],
@@ -96,10 +182,12 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
           ),
 
           // Bottom action buttons
-          _buildBottomActions(),
+          _buildBottomActions(settlement),
         ],
-      ),
-    );
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   PreferredSizeWidget _buildAppBar() {
@@ -123,7 +211,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(int count) {
     return Padding(
       padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 16.h),
       child: Row(
@@ -137,7 +225,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
             ),
           ),
           Text(
-            '${companies.length}건',
+            '${count}건',
             style: TextStyle(
               color: const Color(0xFF9CA3AF),
               fontSize: 16.sp,
@@ -148,7 +236,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
     );
   }
 
-  Widget _buildCompanyList() {
+  Widget _buildCompanyList(List<SettlementItem> items) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Container(
@@ -161,12 +249,12 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
           ),
         ),
         child: Column(
-          children: companies
+          children: items
               .asMap()
               .entries
               .map((entry) => _buildCompanyItem(
             entry.value,
-            isLast: entry.key == companies.length - 1,
+            isLast: entry.key == items.length - 1,
           ))
               .toList(),
         ),
@@ -174,8 +262,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
     );
   }
 
-  Widget _buildCompanyItem(CompanySettlementDetail company,
-      {bool isLast = false}) {
+  Widget _buildCompanyItem(SettlementItem item, {bool isLast = false}) {
     return Column(
       children: [
         Padding(
@@ -189,7 +276,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      company.name,
+                      item.companyName,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20.sp,
@@ -198,7 +285,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
                     ),
                     SizedBox(height: 8.h),
                     Text(
-                      '${company.mealCount}식',
+                      '${item.mealCount}식',
                       style: TextStyle(
                         color: const Color(0xFF3B82F6),
                         fontSize: 16.sp,
@@ -209,7 +296,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
                 ),
               ),
               Text(
-                '${_formatCurrency(company.totalAmount)}원',
+                '${_formatCurrency(item.supplyAmount)}원',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20.sp,
@@ -231,7 +318,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
     );
   }
 
-  Widget _buildTotalSection() {
+  Widget _buildTotalSection(int totalAmount) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Column(
@@ -282,7 +369,9 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
     );
   }
 
-  Widget _buildBottomActions() {
+  Widget _buildBottomActions(Settlement settlement) {
+    final isConfirmed = settlement.status == 'CONFIRMED';
+
     return Container(
       padding: EdgeInsets.all(20.w),
       color: const Color(0xFF0F1419),
@@ -292,7 +381,7 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
           Expanded(
             flex: 2,
             child: GestureDetector(
-              onTap: _copyText,
+              onTap: () => _copyText(settlement),
               child: Container(
                 padding: EdgeInsets.symmetric(vertical: 18.h),
                 decoration: BoxDecoration(
@@ -326,26 +415,26 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
           Expanded(
             flex: 3,
             child: GestureDetector(
-              onTap: _confirmSettlement,
+              onTap: isConfirmed ? null : () => _showConfirmDialog(settlement.id),
               child: Container(
                 padding: EdgeInsets.symmetric(vertical: 18.h),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6),
+                  color: isConfirmed ? const Color(0xFF2D3748) : const Color(0xFF3B82F6),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.check_circle,
-                      color: Colors.white,
+                      isConfirmed ? Icons.check_circle : Icons.check_circle_outline,
+                      color: isConfirmed ? const Color(0xFF9CA3AF) : Colors.white,
                       size: 20.sp,
                     ),
                     SizedBox(width: 8.w),
                     Text(
-                      '정산 확정',
+                      isConfirmed ? '확정됨' : '정산 확정',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: isConfirmed ? const Color(0xFF9CA3AF) : Colors.white,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
                       ),
@@ -359,16 +448,4 @@ class _SettlementDetailScreenState extends State<SettlementDetailScreen> {
       ),
     );
   }
-}
-
-class CompanySettlementDetail {
-  final String name;
-  final int mealCount;
-  final int totalAmount;
-
-  CompanySettlementDetail({
-    required this.name,
-    required this.mealCount,
-    required this.totalAmount,
-  });
 }
